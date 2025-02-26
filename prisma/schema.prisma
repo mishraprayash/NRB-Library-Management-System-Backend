@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+/** 
+
+Role Types of different user of the Library
+
+**/
+
+enum Role {
+  ADMIN
+  SUPERADMIN
+  MEMBER
+}
+
+/**
+
+Category of the Books available in the Library
+
+**/
+
+enum Category {
+  MANAGEMENT
+  ECONOMICS
+  LITERATURE
+  MOTIVATIONAL
+  PERIODICALS
+  RESEARCH
+  MONETARYPOLICY
+  NRBOTHERS
+  ACT
+  ARTICLE
+  MISCELLANEOUS
+}
+
+/**
+
+- id will be unqiue for all boks
+- there can be multiple same books, they will have different id but same bookCode
+- available property will be true if stock > 0 else false
+
+**/
+
+model Book {
+  id Int @id @default(autoincrement())
+  bookCode String 
+  name String
+  authors String[]
+  publisher String
+  publishedYear Int
+  pages Int
+  cost Int
+  category Category @default(MISCELLANEOUS)
+  available Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  borrowedBooks BorrowedBook[]
+}
+
+/**
+- member means either normal user, admin or superadmin based on Role
+- borrowedBooks gives collection of presently borrowing + past borrowed books
+**/
+
+model Member {
+  id Int @id @default(autoincrement())
+  name String
+  username String @unique
+  email String @unique
+  password String
+  phoneNo String @unique
+  role Role @default(MEMBER)
+  createdAt DateTime @default(now())
+  borrowedBooks BorrowedBook[]
+}
+
+/**
+- id represents a unique value to represent each borrowed book
+- bookId includes of id of the book from the Book Table
+- memberId means the id of the member from the Member Table who has borrowed the book
+
+**/
+
+model BorrowedBook {
+  id Int @id @default(autoincrement())
+  bookId Int
+  memberId Int
+  returned Boolean @default(false)
+  borrowedDate DateTime @default(now())
+  returnedDate DateTime? 
+  expiryDate DateTime?
+  renewalCount Int @default(0)
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+
+model Variables {
+  id Int @unique @default(autoincrement())
+  MAX_BOOK_LIMIT Int 
+  MAX_RENEWAL_LIMIT Int 
+  EXPIRYDATE Int 
+}
