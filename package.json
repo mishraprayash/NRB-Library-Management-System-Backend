@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "dev": "nodemon app.js"
+    "dev": "prisma generate && nodemon app.js",
+    "prod":"prisma generate && node app.js"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
-    "@types/node": "^22.13.5"
+    "@types/node": "^22.13.5",
+    "esbuild": "^0.25.0"
   }
 }

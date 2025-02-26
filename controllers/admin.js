@@ -34,9 +34,9 @@ function setCookie(res, accessToken, age) {
             // can only be accessed by server requests
             httpOnly: true,
             // path = where the cookie is valid
-            path: "/",
+            // path: "/",
             // domain = what domain the cookie is valid on
-            domain: "localhost",
+            // domain: "localhost",
             // secure = only send cookie over https
             secure: false,
             // sameSite = only send cookie if the request is coming from the same origin
@@ -117,12 +117,13 @@ export const login = async (req, res) => {
     try {
 
         const { username, password } = req.body;
-        if (!username || !password) {
-            return res.status(400).json({ message: "Username and password both are required" });
-        }
+        // if (!username || !password) {
+        //     return res.status(400).json({ message: "Username and password both are required" });
+        // }
+        console.log(username,password)
         const admin = await prisma.member.findUnique({
             where: {
-                username: username
+                username
             }
         })
         if (!admin) {
@@ -143,7 +144,7 @@ export const login = async (req, res) => {
 
         setCookie(res, accessToken, cookieExpiryDate);
 
-        return res.status(200).json({ message: 'Login Successfully', token: accessToken })
+        return res.status(200).json({ message: 'Login Successfully',username:username, token: accessToken })
 
     } catch (error) {
         console.log(error);

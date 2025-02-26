@@ -15,7 +15,10 @@ const PORT = process.env.PORT || 5000
 // middlewares
 app.use(express.json())
 app.use(cookieParser())
-
+app.use(cors({
+    origin:true,
+    credentials: true
+}))
 
 // if (process.env.NODE_ENV === "development") {
 //     app.use(
