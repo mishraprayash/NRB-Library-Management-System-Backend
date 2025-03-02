@@ -1,0 +1,144 @@
+import prisma from "../../lib/prisma.js"
+
+
+export const getBooks = async (req, res) => {
+    try {
+        // Fetch all books with availability status
+        const allBooks = await prisma.book.findMany({
+            select: {
+                bookCode: true,
+                name: true,
+                authors: true,
+                available: true, // Fetch availability status
+                pages: true,
+                cost: true,
+                publishedYear: true,
+                publisher: true,
+                id:true,
+                category:true
+            },
+        });
+
+        // Group books by bookCode
+        const bookMap = new Map();
+
+        allBooks.forEach(book => {
+            if (!bookMap.has(book.bookCode)) {
+                bookMap.set(book.bookCode, {
+                    id:book.id,
+                    bookCode: book.bookCode,
+                    name: book.name,
+                    authors: book.authors,
+                    available: book.available,
+                    pages: book.pages,
+                    cost: book.cost,
+                    publisher: book.publisher,
+                    publishedYear: book.publishedYear,
+                    category:book.category,
+                    totalCount: 0,
+                    availableCount: 0, // Initialize availableCount
+                });
+            }
+
+            // Increment total count
+            const bookEntry = bookMap.get(book.bookCode);
+            bookEntry.totalCount += 1;
+
+            // Increment available count if the book is available
+            if (book.available) {
+                bookEntry.availableCount += 1;
+            }
+        });
+
+        // Convert map values to an array
+        const groupedBooks = Array.from(bookMap.values());
+
+        return res.status(200).json({
+            message: "Books Fetched Successfully",
+            books: groupedBooks
+        });
+
+    } catch (error) {
+        console.error("Error fetching books:", error.message);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+};
+
+
+export const getBooksWithDuplication = async (req, res) => {
+    try {
+        const books = await prisma.book.findMany();
+        if (!books.length) return res.status(400).json({ message: "No books available" });
+        return res.status(200).json({ message: "Books Fetched Successfully", info: "Duplicates are also shown", books })
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+export const getAvailableBooks = async (req, res) => {
+    try {
+        const allBooks = await prisma.book.findMany({
+            where: {
+                available: true
+            }
+        });
+
+        // if (allBooks.length === 0) {
+        //     return res.status(400).json({ message: "No books available" });
+        // }
+
+        // Group books by bookCode
+        const bookMap = new Map();
+
+        allBooks.forEach(book => {
+            if (bookMap.has(book.bookCode)) {
+                bookMap.get(book.bookCode).count += 1;
+            } else {
+                bookMap.set(book.bookCode, { ...book, count: 1 });
+            }
+        });
+
+        // Convert map values to an array
+        const groupedBooks = Array.from(bookMap.values());
+
+        return res.status(200).json({
+            message: "Available Books Fetched Successfully",
+            books: groupedBooks
+        });
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+export const getBooksForMember = async (req, res) => {
+    try {
+        const { memberId } = req.body;
+        if (!memberId) {
+            return res.status(400).json({ message: "Please provide a valid memberId" });
+        }
+        if (!Number.isInteger(memberId)) {
+            return res.status(400).json({ message: "Invalid Data type for memberId. It must be an integer" });
+        }
+        const isMemberValid = validateMember(memberId);
+        if (!isMemberValid) {
+            return res.status(400).json({ message: "The member doesnot exist" });
+        }
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+
+
+
+export const logout = async (req, res) => {
+    try {
+        res.clearCookie("token")
+        res.status(200).json({ message: "Logout Success" });
+    } catch (error) {
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}

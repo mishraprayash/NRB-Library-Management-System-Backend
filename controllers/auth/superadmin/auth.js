@@ -1,26 +1,27 @@
-import prisma from '../lib/prisma.js'
+import prisma from "../../../lib/prisma.js";
 import bcrypt from "bcryptjs";
+import { setCookie } from "../../../lib/helpers.js";
 import jwt from "jsonwebtoken"
 
 export const register = async (req, res) => {
     try {
         const { name, username, email, password, phoneNo } = req.body;
-        if (!name || !username || !password || !phoneNo ||!email) {
+        if (!name || !username || !password || !phoneNo || !email) {
             return res.status(400).json({
                 message: "Please provide all required details"
             })
         }
-        const superAdmin = await prisma.member.count({
+        const superAdminCount = await prisma.member.count({
             where: {
                 role: "SUPERADMIN"
             }
         })
-        if (adminCount > 0) {
-            return res.status(400).json({ message: 'Admin already exists' })
+        if (superAdminCount > 0) {
+            return res.status(400).json({ message: 'Super Admin already exists. You cannot create more than one superadmin.' })
         }
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const admin = await prisma.member.create({
+        const superAdmin = await prisma.member.create({
             data: {
                 name,
                 username,
@@ -30,10 +31,10 @@ export const register = async (req, res) => {
                 role: 'SUPERADMIN'
             }
         })
-        if (!admin) {
-            return res.status(400).json({ message: "Error while creating admin" });
+        if (!superAdmin) {
+            return res.status(400).json({ message: "Error while creating superAdmin" });
         }
-        return res.status(200).json({ message: "Admin Created Successfully" });
+        return res.status(200).json({ message: "Super Admin Created Successfully" });
 
     } catch (error) {
         return res.status(500).json({ message: "Internal Server Error" });
@@ -43,33 +44,37 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
     try {
-
         const { username, password } = req.body;
         if (!username || !password) {
             return res.status(400).json({ message: "Username and password both are required" });
         }
-        const admin = await prisma.member.findUnique({
+        const superAdmin = await prisma.member.findUnique({
             where: {
-                username: username
+                username
             }
         })
-        if (!admin) {
-            return res.status(400).json({ message: "No user found" });
+        if (!superAdmin) {
+            return res.status(400).json({ message: "Super Admin doesnot exist." });
         }
         const isPasswordMatched = await bcrypt.compare(password, admin.password);
         if (!isPasswordMatched) {
             return res.status(400).json({ message: "Username or password doesnot match" });
         }
         const accessToken = jwt.sign({
-            id: admin.id,
-            username: admin.username,
-            email: admin.email,
-            role: admin.role,
-        }, JWT_SECRET, { expiresIn: JWT_LIFETIME })
+            id: superAdmin.id,
+            username: superAdmin.username,
+            email: superAdmin.email,
+            role: superAdmin.role,
+        }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME })
 
-        return res.status(200).json({ message: 'Login Successfully', token: accessToken })
+        const cookieExpiryDate = 7 * 24 * 60 * 60
+
+        setCookie(res, accessToken, cookieExpiryDate);
+
+        return res.status(200).json({ message: 'Login Successfully', username: username, token: accessToken })
 
     } catch (error) {
+        console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }

@@ -5,11 +5,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      =  env("DATABASE_URL_REMOTE")
-  // url = env("DATABASE_URL")
+  // url      =  env("DATABASE_URL_REMOTE")
+  url = env("DATABASE_URL")
 }
-
-
 
 /** 
 
@@ -24,27 +22,6 @@ enum Role {
 }
 
 /**
-
-Category of the Books available in the Library
-
-**/
-
-enum Category {
-  MANAGEMENT
-  ECONOMICS
-  LITERATURE
-  MOTIVATIONAL
-  PERIODICALS
-  RESEARCH
-  MONETARYPOLICY
-  NRBOTHERS
-  ACT
-  ARTICLE
-  MISCELLANEOUS
-}
-
-/**
-
 - id will be unqiue for all boks
 - there can be multiple same books, they will have different id but same bookCode
 - available property will be true if stock > 0 else false
@@ -60,7 +37,7 @@ model Book {
   publishedYear Int
   pages Int
   cost Int
-  category Category @default(MISCELLANEOUS)
+  category String 
   available Boolean @default(true)
   createdAt DateTime @default(now())
 
@@ -93,8 +70,8 @@ model Member {
 
 model BorrowedBook {
   id Int @id @default(autoincrement())
-  bookId Int
-  memberId Int
+  bookId Int @unique
+  memberId Int 
   returned Boolean @default(false)
   borrowedDate DateTime @default(now())
   returnedDate DateTime? 
@@ -108,7 +85,9 @@ model BorrowedBook {
 
 model Variables {
   id Int @unique @default(autoincrement())
-  MAX_BOOK_LIMIT Int 
+  MAX_BORROW_LIMIT Int 
   MAX_RENEWAL_LIMIT Int 
-  EXPIRYDATE Int 
+  EXPIRYDATE Int
+  CONSECUTIVE_BORROW_LIMIT_DAYS Int 
+  CATEGORIES String[]
 }

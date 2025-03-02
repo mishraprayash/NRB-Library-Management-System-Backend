@@ -4,7 +4,7 @@
   "main": "app.js",
   "scripts": {
     "dev": "prisma generate && nodemon app.js",
-    "prod":"prisma generate && node app.js"
+    "prod": "prisma generate && node app.js"
   },
   "keywords": [],
   "author": "",
@@ -21,7 +21,8 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.3",
     "prisma": "^6.4.1",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
