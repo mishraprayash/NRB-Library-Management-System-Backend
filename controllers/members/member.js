@@ -18,9 +18,23 @@ export const getMembers = async (req, res) => {
                 name: true,
                 username: true,
                 email: true,
-                phoneNo: true
-            }
+                phoneNo: true,
+                _count: {
+                    select: {
+                        borrowedBooks: {
+                            where: {
+                                returned: false
+                            },
+                        },
+
+                    },
+                },
+            },
+
         });
+
+        allMembers.sort((a,b)=>b._count.borrowedBooks - a._count.borrowedBooks)
+
 
         return res.status(200).json({ message: "Members Fetched Successfuly", members: allMembers })
 
@@ -85,15 +99,13 @@ export const addMember = async (req, res) => {
         const memberExist = await prisma.member.findFirst({
             where: {
                 OR: [
-                    { username },
-                    { email },
-                    { phoneNo }
+                    { username }, { email }, { phoneNo }
                 ]
             }
         })
 
         if (memberExist) {
-            return res.status(400).json({ message: "Username, email or phoneNo  already exists" });
+            return res.status(400).json({ message: "Username already exists" });
         }
         // hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -124,74 +136,19 @@ export const addMember = async (req, res) => {
         });
 
     } catch (error) {
-        return res.status(500).json({ message: "Internal Server Error" });
-    }
-}
-
-
-/** 
-- A single member can be deleted based on member-id.
-- Multiple member can be deleted based on collection of member-ids.
- **/
-
-export const deleteMember = async (req, res) => {
-    try {
-        // const isUserAuthenticated = isSuperAdmin(req);
-        // if (!isUserAuthenticated) {
-        //     return res.status(403).json({ message: "Unauthorized Access" });
-
-        // }
-        // take an array from the client side.
-        const { memberIds } = req.body;
-
-        if (!Array.isArray(memberIds) || memberIds.length === 0) {
-            return res.json({ message: "Array of member Id required with at least one integer value" });
-        }
-
-        // Ensure all elements are valid integers
-        if (!memberIds.every(id => Number.isInteger(id))) {
-            return res.status(400).json({ message: "All member IDs must be integers." });
-        }
-
-        // Fetch only existing members
-        const existingMembers = await prisma.member.findMany({
-            where: { id: { in: memberIds } },
-            select: { id: true }
-        });
-
-        const validMemberIds = existingMembers.map((member) => member.id);
-        const invalidMemberIds = memberIds.filter((id) => !validMemberIds.includes(id))
-
-
-        const deletedMembers = await prisma.member.deleteMany({
-            where: { id: { in: validMemberIds } }
-        })
-
-        if (deletedMembers.count === 0) {
-            return res.status(400).json({ message: "Provide valid member-ids" });
-        }
-
-        return res.status(200).json({
-            message: "Successfully Deleted Member",
-            successDeletes: deletedMembers.count,
-            invalidIds: invalidMemberIds
-        });
-
-    } catch (error) {
         console.log(error)
         return res.status(500).json({ message: "Internal Server Error" });
     }
-
 }
 
 export const editMember = async (req, res) => {
     try {
 
-         // const isUserAuthenticated = isSuperAdmin(req);
+        // const isUserAuthenticated = isSuperAdmin(req);
         // if (!isUserAuthenticated) {
         //     return res.status(403).json({ message: "Unauthorized Access" });
         // }
-        
+
         const { id, name, username, phoneNo, email } = req.body;
         if (!id || !name || !username || !phoneNo || !email) {
             return res.status(400).json({ message: "All fields are mandatory" });
@@ -207,23 +164,21 @@ export const editMember = async (req, res) => {
             }
         })
 
+        // validating member exists.
         if (!memberExist) {
             return res.status(400).json({ message: "Member doesnot exist" });
         }
 
-        const doValuesAlreadyExist = await prisma.member.findMany({
-            where: {
-                OR: [
-                    { username },
-                    { email },
-                    { phoneNo }
-                ]
-            }
-        })
-
-        if(doValuesAlreadyExist.length>0){
-            return res.status(400).json({message:"Member with provided username, email or phoneNo already exsists"});
+        // validating changes have been made from the client side.
+        if (
+            memberExist.name === name &&
+            memberExist.username === username &&
+            memberExist.phoneNo === phoneNo &&
+            memberExist.email === email
+        ) {
+            return res.status(400).json({ message: "Please update something before saving changes" });
         }
+
         const updateMember = await prisma.member.update({
             where: {
                 id
@@ -247,3 +202,72 @@ export const editMember = async (req, res) => {
 
     }
 }
+
+
+
+
+/** 
+- A single member can be deleted based on member-id.
+- Multiple member can be deleted based on collection of member-ids.
+
+Both should be sent as an array
+ **/
+
+export const deleteMember = async (req, res) => {
+    try {
+        // const isUserAuthenticated = isSuperAdmin(req);
+        // if (!isUserAuthenticated) {
+        //     return res.status(403).json({ message: "Unauthorized Access" });
+
+        // }
+        // take an array from the client side.
+        const { memberIds } = req.body;
+
+        if (!Array.isArray(memberIds) || memberIds.length === 0) {
+            return res.json({ message: "Array of member Id required with at least one integer value" });
+        }
+
+        // Ensure all elements are valid integers
+        if (!memberIds.every(id => Number.isInteger(id))) {
+            return res.status(400).json({ message: "All member IDs must be integers." });
+        }
+
+        // Fetch only existing members
+        const existingMembers = await prisma.member.findMany({
+            where: {
+                borrowedBooks: {
+                    none: {}, // No borrowed books associated
+                },
+            },
+            select: {
+                id: true,
+                name: true,
+                username: true,
+            },
+        });
+
+        const validMemberIds = existingMembers.map((member) => member.id);
+
+        const invalidMemberIds = memberIds.filter((id) => !validMemberIds.includes(id))
+
+        const deletedMembers = await prisma.member.deleteMany({
+            where: { id: { in: validMemberIds } }
+        })
+
+        if (deletedMembers.count === 0) {
+            return res.status(400).json({ message: "Provide valid member-ids" });
+        }
+
+        return res.status(200).json({
+            message: "Successfully Deleted Member",
+            successDeletes: deletedMembers.count,
+            invalidIds: invalidMemberIds
+        });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+
+}
+

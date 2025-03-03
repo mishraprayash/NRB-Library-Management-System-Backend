@@ -1,10 +1,9 @@
 import prisma from '../../lib/prisma.js'
 import { v4 as uuidv4 } from 'uuid';
+import { Prisma } from '@prisma/client';
 
 // helper functions
 import { validateMember, getConstraints } from "../../lib/helpers.js"
-
-
 
 // @@gives all the issued books
 // can only be seen my admin and superadmin 
@@ -25,17 +24,15 @@ export const getAllBorrowedBooks = async (req, res) => {
                         username: true
                     }
                 },
-                book:{
-                    select:{
-                        name:true,
-                        id:true
+                book: {
+                    select: {
+                        name: true,
+                        authors: true
                     }
                 }
 
             },
         })
-
-
 
         return res.status(200).json({ message: "Borrowed Books Found", borrowedBooks: allBorrowedBooks })
 
@@ -269,9 +266,6 @@ export const borrowBook = async (req, res) => {
 
         const countOfBorrowedBooks = borrowedBooksCount._count.borrowedBooks
 
-        if (countOfBorrowedBooks >= BORROW_LIMIT) {
-            return res.status(400).json({ message: `Borrow Limit Reached. The member has already borrowed ${BORROW_LIMIT} books. Please return the borrowed books first.` });
-        }
 
         if (countOfBorrowedBooks + bookIds.length > BORROW_LIMIT) {
             console.log(countOfBorrowedBooks, BORROW_LIMIT)
@@ -297,25 +291,35 @@ export const borrowBook = async (req, res) => {
                         memberId,
                         returnedDate: { gte: new Date(Date.now() - CONSECUTIVE_BORROW_LIMIT_DAYS * 24 * 60 * 60 * 1000) }
                     },
-                    select: { id: true }
+                    select: {
+                        id: true,
+                        book: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
                 }
-            }
+            },
         });
 
         // Determine allowed and restricted books from the fetched results.
         const allowedBooksIds = [];
         const restrictedBooks = [];
+
         for (const book of books) {
             if (book.borrowedBooks.length > 0) {
                 // Book was borrowed within the last week by this member.
-                restrictedBooks.push(book.id);
+                restrictedBooks.push({ bookId: book.id, message: "Book was just returned within last week", bookName: book.borrowedBooks.map((borrowedBook) => borrowedBook.book.name) });
             } else {
-                allowedBooksIds.push(book.id);
+                allowedBooksIds.push({ bookId: book.id, bookName: book.borrowedBooks.map((borrowedBook) => borrowedBook.book.name) });
             }
         }
 
         // invalidBooksIds: IDs that either don't exist or are not available.
-        const fetchedBookIds = new Set(books.map(b => b.id));
+        const fetchedBookIds = new Set(books.map(book => book.id));
+
         const invalidBooksIds = uniqueBookIds.filter(id => !fetchedBookIds.has(id));
 
         if (!allowedBooksIds.length) {
@@ -326,16 +330,28 @@ export const borrowBook = async (req, res) => {
         }
 
         // Create transactions only for allowed books.
-        const transactions = allowedBooksIds.flatMap(bookId => [
+        const transactions = allowedBooksIds.flatMap(book => [
             prisma.borrowedBook.create({
                 data: {
-                    bookId,
+                    bookId:book.bookId,
                     memberId,
                     expiryDate: new Date(Date.now() + EXPIRY_DATE * 24 * 60 * 60 * 1000),
                 },
+                select:{
+                    book:{
+                        select:{
+                            name:true
+                        }
+                    },
+                    member:{
+                        select:{
+                            username:true
+                        }
+                    }
+                }
             }),
             prisma.book.updateMany({
-                where: { id: bookId },
+                where: { id: book.bookId },
                 data: { available: false },
             }),
         ]);
@@ -364,78 +380,190 @@ export const borrowBook = async (req, res) => {
     }
 }
 
+
 export const returnBook = async (req, res) => {
     try {
-        // bookIds is an array
+        const { memberId, bookIds } = req.body;
+
+        if (!memberId || !bookIds) {
+            return res.status(400).json({ message: "Please provide both memberId and bookIds" });
+        }
+        if (!Number.isInteger(memberId) || !Array.isArray(bookIds)) {
+            return res.status(400).json({ message: "Invalid data types for memberId or bookIds" });
+        }
+
+        // Validate bookIds are integers
+        if (bookIds.some(bookId => !Number.isInteger(bookId) || bookId <= 0)) {
+            return res.status(400).json({ message: "Provide valid bookIds." });
+        }
+
+        // Validate member exists
+        const isMemberValid = await validateMember(memberId);
+
+        if (!isMemberValid) {
+            return res.status(400).json({ message: "The member does not exist." });
+        }
+
+        const borrowedBooksByMember = await prisma.borrowedBook.findMany({
+            where: {
+                bookId: { in: bookIds },
+                memberId,
+                returned: false
+            }
+        })
+
+        if (!borrowedBooksByMember.length) {
+            return res.status(400).json({ message: "The member hasnot borrowed books with provided ids." });
+        }
+
+        await prisma.$transaction(async (tx) => {
+            // Update borrowedBook table
+            const updatedBorrowedBooks = await tx.borrowedBook.updateMany({
+                where: {
+                    bookId: { in: bookIds },
+                    memberId: memberId,
+                    returned: false
+                },
+                data: {
+                    returned: true,
+                    returnedDate: new Date(),
+                    renewalCount: 0
+                },
+            });
+
+            if (updatedBorrowedBooks.count === 0) {
+                throw new Error('Error while returning books');
+            }
+            // Update book table to mark books as available
+            const updateBook = await tx.book.updateMany({
+                where: { id: { in: bookIds }, available: false },
+                data: { available: true },
+            });
+            if (updateBook.count === 0) {
+                throw new Error('Error while returning books');
+            }
+        });
+
+        return res.status(200).json({ message: "Books returned successfully." });
+    } catch (error) {
+        return res.status(500).json({ message: error.message || "Internal Server Error" });
+    }
+};
+
+
+export const renewBook = async (req, res) => {
+    try {
         const { memberId, bookIds } = req.body;
         if (!memberId || !bookIds) {
             return res.status(400).json({ message: "Please provide both memberId and bookId" });
         }
         if (!Number.isInteger(memberId) || !Array.isArray(bookIds)) {
             return res.status(400).json({ message: "Invalid data types for memberId or bookIds" });
-
-        }
-        const isInvalidId = false;
-        bookIds.map((bookId) => {
-            if (!Number.isInteger(bookId) || bookId <= 0) {
-                isInvalidId = true
-            }
-        })
-        if (isInvalidId) {
-            return res.status(400).json({ message: "Provide a valid data types for bookIds." });
         }
 
-        const ismemberValid = validateMember(memberId);
-        if (!ismemberValid) {
+        // Validate bookIds are integers
+        if (bookIds.some(bookId => !Number.isInteger(bookId) || bookId <= 0)) {
+            return res.status(400).json({ message: "Provide valid bookIds." });
+        }
+
+        // Validate member
+        const isMemberValid = await validateMember(memberId);
+        if (!isMemberValid) {
             return res.status(400).json({ message: "The member doesnot exist." });
         }
 
-        const transactions = bookIds.flatMap(bookId => [
-            prisma.borrowedBook.up({
-                data: {
-                    bookId,
-                    memberId,
-                    expiryDate: new Date(Date.now() + EXPIRY_DATE * 24 * 60 * 60 * 1000),
-                },
-            }),
-            prisma.book.updateMany({
-                where: { id: bookId },
-                data: { available: false },
-            }),
-        ]);
-
-        const [returnedBook] = await prisma.$transaction([
-            prisma.borrowedBook.updateMany({
-                where: {
-                    bookId,
-                },
-                data: {
-                    returned: true,
-                    returnedDate: new Date(Date.now())
+        // Fetch all borrowed books
+        const borrowedBooksByMember = await prisma.borrowedBook.findMany({
+            where: {
+                bookId: { in: bookIds },
+                memberId,
+                returned: false,
+            },
+            select: {
+                bookId: true,
+                renewalCount: true,
+                expiryDate: true,
+                book: {
+                    select: {
+                        name: true
+                    }
                 }
-            }),
-            prisma.book.update({
-                where: { id: bookId },
-                data: {
-                    available: true
-                }
-            })
-        ])
+            }
+        });
 
-        if (!returnedBook) {
-            return res.status(400).json({ message: "Error while returning the book" });
+        if (!borrowedBooksByMember.length) {
+            return res.status(400).json({ message: "The member hasnot borrowed books with provided ids." });
         }
 
-        return res.status(200).json({ message: "Book Returned Successfully", returnedBook });
+        const [BORROW_LIMIT, EXPIRY_DATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT] = await getConstraints();
+        const invalidRenewalBooks = [];
+        const validRenewalBooks = [];
+        const failedRenew = [];
+        const successfullRenews = [];
+
+        // Check renewal count
+        borrowedBooksByMember.forEach((book) => {
+            if (book.renewalCount >= MAX_RENEWAL_LIMIT) {
+                invalidRenewalBooks.push({ bookId: book.bookId, expiryDate: book.expiryDate, message: "Max renewal limit reached", bookName: book.book.name });
+            } else {
+                validRenewalBooks.push({ bookId: book.bookId, renewalCount: book.renewalCount, expiryDate: book.expiryDate, bookName: book.book.name });
+            }
+        });
+
+        if (!validRenewalBooks.length) {
+            return res.status(400).json({ message: "The member hasnot borrowed these books" });
+        }
+
+        // Current time for comparison
+        const now = new Date();
+        // Two days from now
+        const twoDaysFromNow = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000);
+
+        // Process renewals only if expiry date is within 2 days
+        for (const validBook of validRenewalBooks) {
+            // If the book's expiry date is more than 2 days away, skip renewal.
+            if (validBook.expiryDate > twoDaysFromNow) {
+                invalidRenewalBooks.push({ bookId: validBook.bookId, expiryDate: validBook.expiryDate, message: "Cannot renew before 2 days of expiry date.", bookName: validBook.bookName });
+                continue;
+            }
+            const newExpiryDate = new Date(validBook.expiryDate.getTime() + EXPIRY_DATE * 24 * 60 * 60 * 1000);
+            const renewedBook = await prisma.borrowedBook.updateMany({
+                where: {
+                    bookId: validBook.bookId,
+                    memberId,
+                    returned: false
+                },
+                data: {
+                    expiryDate: { set: newExpiryDate },
+                    renewalCount: { increment: 1 }
+                }
+            });
+            if (!renewedBook.count) {
+                failedRenew.push({ message: "Book Renew Failed", bookId: validBook.bookId, bookName: validBook.bookName })
+            }
+            successfullRenews.push({ bookId: validBook.bookId, message: `Book with ${validBook.bookId} renewed successfully`, bookName: validBook.bookName });
+        }
+
+        if (!successfullRenews.length) {
+            return res.status(400).json({
+                message: "Book Renewal Failed",
+                invalidRenewalBooks,
+                failedRenew: failedRenew.length !== 0 ? failedRenew : []
+            })
+        }
+        return res.status(200).json({
+            message: `${successfullRenews.length} Books Renewed`,
+            successfullRenews,
+            invalidRenewalBooks,
+            failedRenew
+        });
+
     } catch (error) {
         console.log("Error", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
-}
+};
 
-export const renewBook = async () => {
-
-}
 
 
 export const deleteBook = async (req, res) => {
@@ -485,3 +613,5 @@ export const deleteBook = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
+
+

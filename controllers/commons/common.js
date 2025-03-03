@@ -1,23 +1,12 @@
 import prisma from "../../lib/prisma.js"
 
+import { validateMember } from "../../lib/helpers.js"
 
-export const getBooks = async (req, res) => {
+
+export const getAllBooks = async (req, res) => {
     try {
         // Fetch all books with availability status
-        const allBooks = await prisma.book.findMany({
-            select: {
-                bookCode: true,
-                name: true,
-                authors: true,
-                available: true, // Fetch availability status
-                pages: true,
-                cost: true,
-                publishedYear: true,
-                publisher: true,
-                id:true,
-                category:true
-            },
-        });
+        const allBooks = await prisma.book.findMany();
 
         // Group books by bookCode
         const bookMap = new Map();
@@ -25,7 +14,7 @@ export const getBooks = async (req, res) => {
         allBooks.forEach(book => {
             if (!bookMap.has(book.bookCode)) {
                 bookMap.set(book.bookCode, {
-                    id:book.id,
+                    id: book.id,
                     bookCode: book.bookCode,
                     name: book.name,
                     authors: book.authors,
@@ -34,7 +23,7 @@ export const getBooks = async (req, res) => {
                     cost: book.cost,
                     publisher: book.publisher,
                     publishedYear: book.publishedYear,
-                    category:book.category,
+                    category: book.category,
                     totalCount: 0,
                     availableCount: 0, // Initialize availableCount
                 });
@@ -111,6 +100,8 @@ export const getAvailableBooks = async (req, res) => {
     }
 }
 
+
+
 export const getBooksForMember = async (req, res) => {
     try {
         const { memberId } = req.body;
@@ -120,10 +111,33 @@ export const getBooksForMember = async (req, res) => {
         if (!Number.isInteger(memberId)) {
             return res.status(400).json({ message: "Invalid Data type for memberId. It must be an integer" });
         }
-        const isMemberValid = validateMember(memberId);
+        const isMemberValid = await validateMember(memberId);
         if (!isMemberValid) {
             return res.status(400).json({ message: "The member doesnot exist" });
         }
+
+        const borrowedBooks = await prisma.member.findMany({
+            where: {
+                id: memberId
+            },
+            select: {
+                borrowedBooks: {
+                    where: {
+                        returned: false
+                    },
+                    include:{
+                        book:{
+                            select:{
+                                name:true,
+                                authors:true
+                            }
+                        }
+                    }
+                }
+            }
+        })
+
+        return res.status(200).json({ message: "Book Borrowed Successfully", books:borrowedBooks })
 
     } catch (error) {
         console.log(error);

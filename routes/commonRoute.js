@@ -2,14 +2,14 @@
 import express from "express";
 const router = express.Router();
 
-import {getBooks, getAvailableBooks, logout, getBooksWithDuplication} 
-from "../controllers/commons/common.js"
+import { getAllBooks, getAvailableBooks, logout, getBooksWithDuplication, getBooksForMember }from "../controllers/commons/common.js"
 
-import { getSingleMember } from "../controllers/members/member.js";
+import { getSingleMember, } from "../controllers/members/member.js";
 
-router.route('/getallbooks').get(getBooks)
+router.route('/getallbooks').get(getAllBooks)
 router.route('/getavailablebooks').get(getAvailableBooks)
 router.route('/getbookswithduplicates').get(getBooksWithDuplication)
+router.route('/getbooksformember').post(getBooksForMember)
 
 router.route('/getsinglemember').post(getSingleMember)
 

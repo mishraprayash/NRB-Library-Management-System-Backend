@@ -50,13 +50,15 @@ export const login = async (req, res) => {
         }
         const superAdmin = await prisma.member.findUnique({
             where: {
-                username
+                username,
+                role:"SUPERADMIN"
             }
         })
         if (!superAdmin) {
             return res.status(400).json({ message: "Super Admin doesnot exist." });
         }
         const isPasswordMatched = await bcrypt.compare(password, admin.password);
+        
         if (!isPasswordMatched) {
             return res.status(400).json({ message: "Username or password doesnot match" });
         }
