@@ -68,9 +68,10 @@ export const login = async (req, res) => {
             username: admin.username,
             email: admin.email,
             role: admin.role,
-        }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME })
+        }, process.env.JWT_SECRET,{expiresIn:'1d'})
 
-        const cookieExpiryDate = 7 * 24 * 60 * 60
+       
+        const cookieExpiryDate = 7 * 24 * 60 * 60 * 1000;
 
         setCookie(res, accessToken, cookieExpiryDate);
 
