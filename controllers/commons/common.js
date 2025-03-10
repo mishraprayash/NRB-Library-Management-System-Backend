@@ -1,10 +1,18 @@
 import prisma from "../../lib/prisma.js"
+import bcrypt from "bcryptjs";
 
 import { validateMember } from "../../lib/helpers.js"
+import { isAdmin, isSuperAdmin } from "../../lib/helpers.js";
 
 
 export const getAllBooks = async (req, res) => {
     try {
+
+        // const isAllowed = isAdmin(req) || isSuperAdmin(req);
+        // if(!isAllowed){
+        //     return res.status(403).json({message:"Unauthorized"})
+        // }
+
         // Fetch all books with availability status
         const allBooks = await prisma.book.findMany();
 
@@ -25,7 +33,7 @@ export const getAllBooks = async (req, res) => {
                     publishedYear: book.publishedYear,
                     category: book.category,
                     totalCount: 0,
-                    availableCount: 0, // Initialize availableCount
+                    availableCount: 0, 
                 });
             }
 
@@ -48,11 +56,10 @@ export const getAllBooks = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error fetching books:", error.message);
+        console.error("Error fetching books:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
-
 
 export const getBooksWithDuplication = async (req, res) => {
     try {
@@ -100,8 +107,6 @@ export const getAvailableBooks = async (req, res) => {
     }
 }
 
-
-
 export const getBooksForMember = async (req, res) => {
     try {
         const { memberId } = req.body;
@@ -146,13 +151,133 @@ export const getBooksForMember = async (req, res) => {
 }
 
 
-
-
-export const logout = async (req, res) => {
+export const editProfileDetails = async (req, res) => {
     try {
-        res.clearCookie("token")
-        res.status(200).json({ message: "Logout Success" });
+
+        const { memberId, name, username, phoneNo, email } = req.body;
+        if (!memberId || !name || !username || !phoneNo || !email) {
+            return res.status(400).json({ message: "All fields are mandatory" });
+        }
+
+        if (!Number.isInteger(memberId) || typeof name !== "string" || typeof username !== "string" || typeof phoneNo !== "string" || typeof email !== "string") {
+            return res.status(400).json({ message: "Invalid data types" });
+        }
+
+        const memberExist = await prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        })
+
+        // validating member exists.
+        if (!memberExist) {
+            return res.status(400).json({ message: "Member doesnot exist" });
+        }
+
+        // validating changes have been made from the client side.
+        if (
+            memberExist.name === name &&
+            memberExist.username === username &&
+            memberExist.phoneNo === phoneNo &&
+            memberExist.email === email
+        ) {
+            return res.status(400).json({ message: "Please update something before saving changes" });
+        }
+
+        const updateMember = await prisma.member.update({
+            where: {
+                id: memberId
+            },
+            data: {
+                name,
+                username,
+                phoneNo,
+                email
+            }
+        })
+
+        if (!updateMember) {
+            return res.status(400).json({ message: "Error while updating member" });
+        }
+        return res.status(200).json({ message: "Member Updated Successfully" })
+
     } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+
+    }
+}
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { memberId, oldPassword, newPassword } = req.body;
+        if (!oldPassword || !newPassword || typeof oldPassword !== "string" || typeof newPassword !== "string") {
+            return res.status(400).json({ message: "Please provide both old password and new password with valid values" });
+        }
+
+        const memberExist = await prisma.member.findUnique({
+            where: {
+                id: memberId
+            }
+        })
+        if (!memberExist) {
+            return res.status(400).json({ message: "Member not found" });
+        }
+        const isOldPasswordMatched = await bcrypt.compare(oldPassword, memberExist.password)
+        if (!isOldPasswordMatched) {
+            return res.status(400).json({ message: 'Old password doesnot match. Please contact admin for reseting your password' });
+        }
+        const newHashedPassword = await bcrypt.hash(newPassword, 10);
+        const updatedMember = await prisma.member.update({
+            where: {
+                id: memberId
+            },
+            data: {
+                password: {
+                    set: newHashedPassword
+                }
+            }
+        })
+        if (!updatedMember) {
+            return res.status(400).json({ message: "Error while updating password. Please contact admin for this." });
+        }
+        return res.status(200).json({ message: "Password Reset Successfully" })
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+export const getProfile = async (req, res) => {
+    try {
+        const { memberId } = req.body;
+
+        if (!memberId || !Number.isInteger(memberId)) {
+            return res.status(400).json({ message: "Please provide a memberId." })
+        }
+
+        const memberDetails = await prisma.member.findUnique({
+            where: {
+                id: memberId
+            },
+            select: {
+                id: true,
+                name: true,
+                username: true,
+                email: true,
+                phoneNo: true,
+                createdAt: true
+            }
+        })
+
+        if (!memberDetails) {
+            return res.status(400).json({ message: "Member not found" });
+        }
+        return res.status(200).json({ message: "Member Fetched Successfully", memberDetails })
+
+    } catch (error) {
+        console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }

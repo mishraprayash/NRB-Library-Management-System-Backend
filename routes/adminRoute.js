@@ -1,17 +1,17 @@
 import express from "express";
 
 // admin auth
-import { register, login } from "../controllers/auth/admin/auth.js";
+import { register, login } from "../controllers/auth/admin-auth.js";
 
 // 
-import { getMembers, addMember, deleteMember, getSingleMember, editMember } from "../controllers/members/member.js"
+import { getMembers, addMember, deleteMember, editMemberDetails} from "../controllers/members/member.js"
 
 import { getVariables, createVariables, updateVariables } from "../controllers/variables/variable.js"
 
-import { addBook, editBook, deleteBook, returnBook, renewBook, getAllBorrowedBooks, borrowBook } from "../controllers/books/book.js"
+import { addBook, editBook,  returnBook, renewBook, getAllBorrowedBooks, borrowBook, getDashBoardInfo } from "../controllers/books/book.js"
 
 
-import { isAuthorized, isCookieAuthorized } from "../lib/authMiddleware.js"
+import { isAuthorized } from "../lib/authMiddleware.js"
 
 
 const router = express.Router();
@@ -25,7 +25,7 @@ router.route('/login').post(login);
 // books 
 router.route('/addbook').post(addBook);
 router.route('/editbook').post(editBook);
-router.route('/deletebooks').post(deleteBook);
+
 
 router.route('/borrowbook').post(borrowBook);
 router.route('/returnbook').post(returnBook);
@@ -35,9 +35,8 @@ router.route('/getallborrowedbooks').get(getAllBorrowedBooks)
 
 // members
 router.route('/getmembers').get(getMembers);
-router.route('/getsinglemember').post(getSingleMember);
 router.route('/addmember').post(addMember);
-router.route('/editmember').post(editMember)
+router.route('/editmember').post(editMemberDetails)
 router.route('/deletemember').post(deleteMember)
 
 
@@ -45,6 +44,10 @@ router.route('/deletemember').post(deleteMember)
 router.route('/createvariables').post(createVariables);
 router.route('/updatevariables').post(updateVariables);
 router.route('/getvariables').get(getVariables)
+
+
+// admin dashboard
+router.route('/details').get(getDashBoardInfo)
 
 
 

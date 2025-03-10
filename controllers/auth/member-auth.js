@@ -1,6 +1,5 @@
-import prisma from "../../../lib/prisma.js";
+import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
-import { setCookie } from "../../../lib/helpers.js";
 import jwt from "jsonwebtoken"
 
 
@@ -13,13 +12,13 @@ export const login = async (req, res) => {
         }
         const memberExist = await prisma.member.findUnique({
             where: {
-               username
+                username
             }
         })
         if (!memberExist) {
             return res.status(400).json({ message: "Member doesnot exist" });
         }
-        const isPasswordMatched = await bcrypt.compare(password, admin.password);
+        const isPasswordMatched = await bcrypt.compare(password, memberExist.password);
 
         if (!isPasswordMatched) {
             return res.status(400).json({ message: "Username or password doesnot match" });
@@ -29,13 +28,9 @@ export const login = async (req, res) => {
             username: memberExist.username,
             email: memberExist.email,
             role: memberExist.role,
-        }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFE2TIME })
+        }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME })
 
-        const cookieExpiryDate = 7 * 24 * 60 * 60
-
-        setCookie(res, accessToken, cookieExpiryDate);
-
-        return res.status(200).json({ message: 'Login Successfully', username: username, token: accessToken })
+        return res.status(200).json({ message: 'Login Successfully', username: username, memberId: memberExist.id, token: accessToken })
 
     } catch (error) {
         console.log(error);
