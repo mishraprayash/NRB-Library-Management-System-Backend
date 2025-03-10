@@ -4,15 +4,14 @@ import express from "express";
 import cors from "cors";
 import { config } from "dotenv";
 import cookieParser from "cookie-parser";
-import cluster from "cluster";
-import os from "os";
+import cluster from "node:cluster";
+import os from "node:os";
 
 import adminRoute from "./routes/adminRoute.js";
 import commonRoute from "./routes/commonRoute.js";
 import memberRoute from "./routes/memberRoute.js"
 import superAdminRoute from "./routes/superAdmin.js"
 
-import { logger } from "./services/logging.js";
 
 // Load environment variables
 config();
@@ -51,21 +50,19 @@ app.get("/", (req, res) => {
 
 // Centralized error handling
 app.use((err, req, res, next) => {
-  logger.error(err.stack);
+  console.log(err);
   res.status(500).json({ message: "Something went wrong!", error: err.message });
 });
 
 // Function to start the server
 const startServer = () => {
-  const server = app.listen(PORT, () => {
-    logger.info(`Worker ${process.pid} is running on PORT ${PORT}`);
+  const server = app.listen(PORT,()=>{
+    console.log('Server Started Successfully');
   });
 
   // Handle graceful shutdown
   process.on("SIGTERM", () => {
-    logger.info("SIGTERM signal received: closing HTTP server");
     server.close(() => {
-      logger.info("HTTP server closed");
       process.exit(0);
     });
   });
@@ -76,15 +73,10 @@ if (cluster.isPrimary) {
   const numCPUs = os.cpus().length;
   const WORKER_COUNT = Math.max(numCPUs / 2, 1); // Leave one core free
 
-  logger.info(`Master process ${process.pid} is running in ${process.env.NODE_ENV || "development"} mode`);
-
   for (let i = 0; i < WORKER_COUNT; i++) {
     cluster.fork();
   }
-
   cluster.on("exit", (worker, code, signal) => {
-    logger.warn(`Worker ${worker.process.pid} died with code ${code} and signal ${signal}`);
-    logger.info("Starting a new worker...");
     cluster.fork();
   });
 } else {

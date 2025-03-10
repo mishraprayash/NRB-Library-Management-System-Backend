@@ -2,18 +2,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
-
 datasource db {
   provider = "postgresql"
   // url      =  env("DATABASE_URL_REMOTE")
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
-/** 
-
-Role Types of different user of the Library
-
-**/
+/**
+ * Role Types of different user of the Library
+ */
 
 enum Role {
   ADMIN
@@ -21,73 +18,89 @@ enum Role {
   MEMBER
 }
 
-/**
-- id will be unqiue for all boks
-- there can be multiple same books, they will have different id but same bookCode
-- available property will be true if stock > 0 else false
+enum LogLevel {
+  INFO
+  WARN
+  ERROR
+  DEBUG
+}
 
-**/
+/**
+ * - id will be unqiue for all boks
+ * - there can be multiple same books, they will have different id but same bookCode
+ * - available property will be true if stock > 0 else false
+ */
 
 model Book {
-  id Int @id @default(autoincrement())
-  bookCode String 
-  name String
-  authors String[]
-  publisher String
+  id            Int      @id @default(autoincrement())
+  bookCode      String
+  name          String
+  authors       String[]
+  publisher     String
   publishedYear Int
-  pages Int
-  cost Int
-  category String 
-  available Boolean @default(true)
-  createdAt DateTime @default(now())
+  pages         Int
+  cost          Int
+  category      String
+  available     Boolean  @default(true)
+  createdAt     DateTime @default(now())
 
   borrowedBooks BorrowedBook[]
 }
 
 /**
-- member means either normal user, admin or superadmin based on Role
-- borrowedBooks gives collection of presently borrowing + past borrowed books
-**/
+ * - member means either normal user, admin or superadmin based on Role
+ * - borrowedBooks gives collection of presently borrowing + past borrowed books
+ */
 
 model Member {
-  id Int @id @default(autoincrement())
-  name String
-  username String @unique
-  email String @unique
-  password String
-  phoneNo String @unique
-  role Role @default(MEMBER)
-  createdAt DateTime @default(now())
+  id            Int            @id @default(autoincrement())
+  name          String
+  username      String         @unique
+  email         String         @unique
+  password      String
+  phoneNo       String         @unique
+  role          Role           @default(MEMBER)
+  createdAt     DateTime       @default(now())
   borrowedBooks BorrowedBook[]
 }
 
 /**
-- id represents a unique value to represent each borrowed book
-- bookId includes of id of the book from the Book Table
-- memberId means the id of the member from the Member Table who has borrowed the book
-
-**/
+ * - id represents a unique value to represent each borrowed book
+ * - bookId includes of id of the book from the Book Table
+ * - memberId means the id of the member from the Member Table who has borrowed the book
+ */
 
 model BorrowedBook {
-  id Int @id @default(autoincrement())
-  bookId Int 
-  memberId Int 
-  returned Boolean @default(false)
-  borrowedDate DateTime @default(now())
-  returnedDate DateTime? 
-  expiryDate DateTime?
-  renewalCount Int @default(0)
+  id           Int       @id @default(autoincrement())
+  bookId       Int
+  memberId     Int
+  returned     Boolean   @default(false)
+  borrowedDate DateTime  @default(now())
+  returnedDate DateTime?
+  expiryDate   DateTime?
+  renewalCount Int       @default(0)
 
-  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
 }
 
-
 model Variables {
-  id Int @unique @default(autoincrement())
-  MAX_BORROW_LIMIT Int 
-  MAX_RENEWAL_LIMIT Int 
-  EXPIRYDATE Int
-  CONSECUTIVE_BORROW_LIMIT_DAYS Int 
-  CATEGORIES String[]
+  id                            Int      @unique @default(autoincrement())
+  MAX_BORROW_LIMIT              Int
+  MAX_RENEWAL_LIMIT             Int
+  EXPIRYDATE                    Int
+  CONSECUTIVE_BORROW_LIMIT_DAYS Int
+  CATEGORIES                    String[]
+}
+
+model Logs {
+  id          String   @unique @default(uuid())
+  level       LogLevel
+  performedBy String
+  action      String
+  affectedIds String[] @default([])
+  description String?
+  module      String? // like 'Book', 'Member'
+  meta        Json
+  time        DateTime @default(now())
 }
