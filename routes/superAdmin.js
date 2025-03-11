@@ -4,7 +4,6 @@ import { deleteBookByCount, deleteSameMultipleBook } from "../controllers/books/
 
 const router = Router();
 
-
 router.route('/register').post(register)
 router.route('/login').post(login);
 router.route('/deleteallbook').post(deleteSameMultipleBook);

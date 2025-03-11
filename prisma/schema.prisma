@@ -96,11 +96,12 @@ model Variables {
 model Logs {
   id          String   @unique @default(uuid())
   level       LogLevel
-  performedBy String
+  performedBy String // admin, superadmin, member
+  performerID Int    // adminID, memberID
   action      String
   affectedIds String[] @default([])
   description String?
   module      String? // like 'Book', 'Member'
-  meta        Json
+  meta        Json?
   time        DateTime @default(now())
 }

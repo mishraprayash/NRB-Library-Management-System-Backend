@@ -2,8 +2,15 @@ import prisma from '../../lib/prisma.js'
 import { v4 as uuidv4 } from 'uuid';
 
 
-import { validateMember, getConstraints } from "../../lib/helpers.js"
+import { validateMember, getDBConstraints } from "../../lib/helpers.js"
 
+
+/*
+If we need to add a new book to the library, we can use this route.
+
+- Cannot add same book that already exists with the same book name
+- Can add multiple same books at the same time. For e.g  Alchemist (50 pieces)
+*/
 
 export const addBook = async (req, res) => {
     try {
@@ -47,11 +54,11 @@ export const addBook = async (req, res) => {
 
         // creating an array based on stock count
         const booksToAdd = Array.from({ length: stock }, () => ({
+            bookCode: uuid,
             name,
             authors,
             publisher,
             publishedYear,
-            bookCode: uuid,
             cost,
             pages,
             category: upperCasedCategory
@@ -69,6 +76,14 @@ export const addBook = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
+
+/* 
+If needed to change any details later if there are any typos, this route can
+be used to edit the information. 
+
+- If you change one book, then the details for all same book in the library will be changed.  
+
+*/
 
 export const editBook = async (req, res) => {
     try {
@@ -104,11 +119,10 @@ export const editBook = async (req, res) => {
         })
 
         if (stock < totalStock) {
-            return res.status(400).json({ message: "You are not allowed to remove a book. SuperAdmin Permission is required" });
+            return res.status(400).json({ message: "You are not allowed to remove a book. SuperAdmin Permission is required. Use the delete method for removing books." });
         }
 
         const addedStock = stock - totalStock;
-
 
         // If the stock value isnot changed and only fields are changed, changing the values for all the total stock.
         await prisma.book.updateMany({
@@ -153,6 +167,10 @@ export const editBook = async (req, res) => {
     }
 }
 
+/* 
+While a member need to borrow a new book, the admin need to assign a book to that member.
+*/
+
 export const borrowBook = async (req, res) => {
     try {
         const { memberId, bookIds } = req.body;
@@ -172,7 +190,7 @@ export const borrowBook = async (req, res) => {
         }
 
         // Get system constraints
-        const [BORROW_LIMIT, EXPIRY_DATE, ,] = await getConstraints(req, res);
+        const [BORROW_LIMIT, EXPIRY_DATE, ,] = await getDBConstraints(req, res);
 
         // Fetch active borrowed books for the member
         const booksBorrowedByAMember = await prisma.borrowedBook.findMany({
@@ -325,6 +343,11 @@ export const borrowBook = async (req, res) => {
     }
 }
 
+/* 
+gives all the borrwed books list by all members.
+admin or superadmin can access this route.
+*/
+
 export const getAllBorrowedBooks = async (req, res) => {
     try {
 
@@ -353,6 +376,11 @@ export const getAllBorrowedBooks = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
+
+/*
+While returning a book, admin will return it from the member borrowed books list.
+admin or superadmin can only access this route
+*/
 
 export const returnBook = async (req, res) => {
     try {
@@ -423,6 +451,9 @@ export const returnBook = async (req, res) => {
     }
 };
 
+/*
+When renewning a book, admin will help renew the book following certain constraints.
+*/
 export const renewBook = async (req, res) => {
     try {
         const { memberId, bookIds } = req.body;
@@ -467,7 +498,7 @@ export const renewBook = async (req, res) => {
             return res.status(400).json({ message: "The member hasnot borrowed books with provided ids." });
         }
 
-        const [BORROW_LIMIT, EXPIRY_DATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT] = await getConstraints();
+        const [BORROW_LIMIT, EXPIRY_DATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT] = await getDBConstraints();
         const invalidRenewalBooks = [];
         const validRenewalBooks = [];
         const failedRenew = [];
@@ -536,6 +567,11 @@ export const renewBook = async (req, res) => {
     }
 };
 
+/*
+This route is for deleting same book and all of them at once. For example there might be multiple same books in the library.
+Only SuperAdmin can access this route
+*/
+
 export const deleteSameMultipleBook = async (req, res) => {
     try {
         const { bookCode } = req.body;
@@ -549,7 +585,7 @@ export const deleteSameMultipleBook = async (req, res) => {
             }
         })
         if (!bookExist.length) {
-            return res.status(400).json({ message: "No any book exist with the provided bookCode" });
+            return res.status(400).json({ message: "You cannot delete these books as they are assigned to someone." });
         }
         await prisma.book.deleteMany({
             where: {
@@ -564,6 +600,11 @@ export const deleteSameMultipleBook = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" })
     }
 }
+
+/*
+This route is for deleting same books but with specific count. For example there might be 50 books which are same and you want to delete only 5 of them.
+Only SuperAdmin can access this route
+*/
 
 export const deleteBookByCount = async (req, res) => {
     try {
@@ -597,9 +638,16 @@ export const deleteBookByCount = async (req, res) => {
     }
 }
 
+/*
+This route is for providing information to show in the admin and superadmin dashboard
+Both Admin and SuperAdmin can access this route
+*/
+
 export const getDashBoardInfo = async (req, res) => {
     try {
-        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] = await getConstraints();
+
+        // get DB constraints
+        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints();
         
         // Get all books count by category
         const totalBooksByCategory = await prisma.book.groupBy({
@@ -666,7 +714,7 @@ export const getDashBoardInfo = async (req, res) => {
             countOfCurrentlyBorrowedBooks: currentlyBorrowedBooks.length,
             countOfExpiredBooks: expiredBooks.length,
             expiredBooks,
-            categoryStats, // Updated category stats with total and borrowed count
+            categoryStats, 
             variables: {
                 MAX_BORROW_LIMIT,
                 MAX_RENEWAL_LIMIT,
@@ -676,6 +724,7 @@ export const getDashBoardInfo = async (req, res) => {
             }
         });
     } catch (error) {
+        console.log(error);
         return res.status(500).json({ message: "Error fetching details", error });
     }
 };

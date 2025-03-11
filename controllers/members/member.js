@@ -1,7 +1,7 @@
 
 import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
-import { getConstraints } from "../../lib/helpers.js"
+import { getDBConstraints } from "../../lib/helpers.js"
 
 
 
@@ -158,7 +158,7 @@ export const getDashboardDetails = async (req, res) => {
             return res.status(400).json({ message: "Please provide a valid memberId" });
         }
 
-        const [, EXPIRY_DATE] = await getConstraints(req, res);
+        const [, EXPIRY_DATE] = await getDBConstraints(req, res);
 
         // Fetch all relevant data in a single query
         const borrowedBooks = await prisma.borrowedBook.findMany({

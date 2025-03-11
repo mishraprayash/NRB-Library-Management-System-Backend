@@ -1,6 +1,7 @@
 import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
+import { setCookie } from "../../lib/helpers.js";
 
 export const register = async (req, res) => {
     try {
@@ -62,13 +63,18 @@ export const login = async (req, res) => {
         if (!isPasswordMatched) {
             return res.status(400).json({ message: "Username or password doesnot match" });
         }
-        console.log();
         const accessToken = jwt.sign({
             id: admin.id,
             username: admin.username,
             email: admin.email,
             role: admin.role,
         }, process.env.JWT_SECRET,{expiresIn:'1d'})
+
+        const isCookieSet = setCookie(res,accessToken, admin.role)
+
+        if(!isCookieSet){
+            return res.status(500).json({message:"Error while setting cookie"});
+        }
 
         return res.status(200).json({ message: 'Login Successfully', username: username, token: accessToken })
 

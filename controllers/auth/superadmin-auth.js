@@ -1,6 +1,9 @@
+
 import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
+import { setCookie } from "../../lib/helpers.js";
+import { memoryUsage } from "process";
 
 export const register = async (req, res) => {
     try {
@@ -48,25 +51,25 @@ export const login = async (req, res) => {
         }
 
         const superAdminAlreadyExist = await prisma.member.findMany({
-            where:{
-                role:"SUPERADMIN"
+            where: {
+                role: "SUPERADMIN"
             }
         })
-        if(!superAdminAlreadyExist.length){
-            return res.statu(400).json({message:"Super Admin doesnot exist. Please create one before logging in."});
+        if (!superAdminAlreadyExist.length) {
+            return res.statu(400).json({ message: "Super Admin doesnot exist. Please create one before logging in." });
         }
 
         const superAdmin = await prisma.member.findUnique({
             where: {
                 username,
-                role:"SUPERADMIN"
+                role: "SUPERADMIN"
             }
         })
         if (!superAdmin) {
             return res.status(400).json({ message: "Username or password doesnot match" });
         }
         const isPasswordMatched = await bcrypt.compare(password, superAdmin.password);
-        
+
         if (!isPasswordMatched) {
             return res.status(400).json({ message: "Username or password doesnot match" });
         }
@@ -77,6 +80,11 @@ export const login = async (req, res) => {
             role: superAdmin.role,
         }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME })
 
+        const isCookieSet = setCookie(res, accessToken, superAdmin.role)
+        if (!isCookieSet) {
+            return res.status(500).json({ message: "Error while setting cookie" });
+        }
+
         return res.status(200).json({ message: 'Login Successfully', token: accessToken })
 
     } catch (error) {
@@ -85,11 +93,11 @@ export const login = async (req, res) => {
     }
 }
 
-export const updateDetails = async(req,res)=>{
-    try {   
-        const {name,username,email,phoneNo,password} = req.body;
+export const updateDetails = async (req, res) => {
+    try {
+        const { name, username, email, phoneNo, password } = req.body;
 
     } catch (error) {
-        
+
     }
 }

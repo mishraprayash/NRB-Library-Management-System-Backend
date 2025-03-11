@@ -21,8 +21,6 @@ config();
 const PORT = process.env.PORT || 5000;
 const API_PREFIX_VERSION = "/api/v1";
 
-
-
 const app = express();
 
 // Middlewares

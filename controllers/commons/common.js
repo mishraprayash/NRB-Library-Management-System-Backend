@@ -1,24 +1,26 @@
 import prisma from "../../lib/prisma.js"
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken"
+import { deleteCookie} from "../../lib/helpers.js"
 
-import { validateMember } from "../../lib/helpers.js"
-import { isAdmin, isSuperAdmin } from "../../lib/helpers.js";
+/*
+The API routes in this file can be accessed by all the users. So that api endpoint for this route starts with  /api/v1/common
+*/
 
-
+/* 
+This route gives the list of all the books in the library
+*/
 export const getAllBooks = async (req, res) => {
     try {
 
-        // const isAllowed = isAdmin(req) || isSuperAdmin(req);
-        // if(!isAllowed){
-        //     return res.status(403).json({message:"Unauthorized"})
-        // }
-
-        // Fetch all books with availability status
         const allBooks = await prisma.book.findMany();
 
-        // Group books by bookCode
-        const bookMap = new Map();
+        /* 
+        Grouping books by bookCode as same book have same bookCode but different id.
+        And counting the frequency of books (both total count and currently available to borrow count)
+        */
 
+        const bookMap = new Map();
         allBooks.forEach(book => {
             if (!bookMap.has(book.bookCode)) {
                 bookMap.set(book.bookCode, {
@@ -33,7 +35,7 @@ export const getAllBooks = async (req, res) => {
                     publishedYear: book.publishedYear,
                     category: book.category,
                     totalCount: 0,
-                    availableCount: 0, 
+                    availableCount: 0,
                 });
             }
 
@@ -47,7 +49,7 @@ export const getAllBooks = async (req, res) => {
             }
         });
 
-        // Convert map values to an array
+        // Convert the values of the map into an array 
         const groupedBooks = Array.from(bookMap.values());
 
         return res.status(200).json({
@@ -56,22 +58,28 @@ export const getAllBooks = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Error fetching books:", error);
+        console.error("Error fetching all books:", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };
 
+/* 
+This route hasnot been specifically used but it gives different rows for each book even if they are same without counting frequency for same books.
+*/
+
 export const getBooksWithDuplication = async (req, res) => {
     try {
         const books = await prisma.book.findMany();
-        if (!books.length) return res.status(400).json({ message: "No books available" });
-        return res.status(200).json({ message: "Books Fetched Successfully", info: "Duplicates are also shown", books })
+        return res.status(200).json({ message: "Books Fetched Successfully", info: "Duplicates are also shown in different row", books })
     } catch (error) {
-        console.error(error);
+        console.error("Error while getting all books with duplication", error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
 
+/* 
+This route is designed to give only the available books which are not currently borrowed by the members
+*/
 export const getAvailableBooks = async (req, res) => {
     try {
         const allBooks = await prisma.book.findMany({
@@ -80,11 +88,7 @@ export const getAvailableBooks = async (req, res) => {
             }
         });
 
-        // if (allBooks.length === 0) {
-        //     return res.status(400).json({ message: "No books available" });
-        // }
-
-        // Group books by bookCode
+        // Group books by bookCode so that we can also count the number of same books
         const bookMap = new Map();
 
         allBooks.forEach(book => {
@@ -95,19 +99,24 @@ export const getAvailableBooks = async (req, res) => {
             }
         });
 
-        // Convert map values to an array
+        // extracting the values from the map and converting it into the array
         const groupedBooks = Array.from(bookMap.values());
 
         return res.status(200).json({
             message: "Available Books Fetched Successfully",
             books: groupedBooks
         });
+
     } catch (error) {
+        console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
 
-export const getBooksForMember = async (req, res) => {
+/* 
+This route is designed to fetch all the books that are currently borrowed by a member based on their memberID.
+*/
+export const getBorrowedBooksForMember = async (req, res) => {
     try {
         const { memberId } = req.body;
         if (!memberId) {
@@ -115,10 +124,6 @@ export const getBooksForMember = async (req, res) => {
         }
         if (!Number.isInteger(memberId)) {
             return res.status(400).json({ message: "Invalid Data type for memberId. It must be an integer" });
-        }
-        const isMemberValid = await validateMember(memberId);
-        if (!isMemberValid) {
-            return res.status(400).json({ message: "The member doesnot exist" });
         }
 
         const borrowedBooks = await prisma.member.findMany({
@@ -130,11 +135,11 @@ export const getBooksForMember = async (req, res) => {
                     where: {
                         returned: false
                     },
-                    include:{
-                        book:{
-                            select:{
-                                name:true,
-                                authors:true
+                    include: {
+                        book: {
+                            select: {
+                                name: true,
+                                authors: true
                             }
                         }
                     }
@@ -142,7 +147,7 @@ export const getBooksForMember = async (req, res) => {
             }
         })
 
-        return res.status(200).json({ message: "Book Borrowed Successfully", books:borrowedBooks })
+        return res.status(200).json({ message: "Book Borrowed Successfully", books: borrowedBooks })
 
     } catch (error) {
         console.log(error);
@@ -150,56 +155,60 @@ export const getBooksForMember = async (req, res) => {
     }
 }
 
+/* 
+This route is designed for member to update their profile information. 
+For example name, phoneNo, and email can be changed by user.
+*/
 
-export const editProfileDetails = async (req, res) => {
+export const updateMyProfileDetails = async (req, res) => {
     try {
 
-        const { memberId, name, username, phoneNo, email } = req.body;
-        if (!memberId || !name || !username || !phoneNo || !email) {
+        const { name, phoneNo, email } = req.body;
+        if (!name || !phoneNo || !email) {
             return res.status(400).json({ message: "All fields are mandatory" });
         }
 
-        if (!Number.isInteger(memberId) || typeof name !== "string" || typeof username !== "string" || typeof phoneNo !== "string" || typeof email !== "string") {
+        if (typeof name !== "string" ||
+            typeof phoneNo !== "string" ||
+            typeof email !== "string") {
             return res.status(400).json({ message: "Invalid data types" });
         }
 
-        const memberExist = await prisma.member.findUnique({
-            where: {
-                id: memberId
+        const userExist = await prisma.member.findUnique({
+            where:{
+                id:req.user.id
             }
         })
 
-        // validating member exists.
-        if (!memberExist) {
-            return res.status(400).json({ message: "Member doesnot exist" });
+        if (!userExist) {
+            return res.status(400).json({ message: "This user doesnot exist" });
         }
 
-        // validating changes have been made from the client side.
+        /*Checking if there are changes made or not */
+
         if (
-            memberExist.name === name &&
-            memberExist.username === username &&
-            memberExist.phoneNo === phoneNo &&
-            memberExist.email === email
+            userExist.name === name &&
+            userExist.phoneNo === phoneNo &&
+            userExist.email === email
         ) {
             return res.status(400).json({ message: "Please update something before saving changes" });
         }
 
-        const updateMember = await prisma.member.update({
+        const updateUser = await prisma.member.update({
             where: {
-                id: memberId
+                id: userId
             },
             data: {
                 name,
-                username,
                 phoneNo,
                 email
             }
         })
 
-        if (!updateMember) {
-            return res.status(400).json({ message: "Error while updating member" });
+        if (!updateUser) {
+            return res.status(400).json({ message: "Error while updating profile" });
         }
-        return res.status(200).json({ message: "Member Updated Successfully" })
+        return res.status(200).json({ message: "Profile Updated Successfully" })
 
     } catch (error) {
         console.log(error);
@@ -208,29 +217,37 @@ export const editProfileDetails = async (req, res) => {
     }
 }
 
+
+/* 
+This route is for changing the password for the user which requires user for them to know their old password.
+*/
 export const resetPassword = async (req, res) => {
     try {
-        const { memberId, oldPassword, newPassword } = req.body;
+        const { oldPassword, newPassword } = req.body;
         if (!oldPassword || !newPassword || typeof oldPassword !== "string" || typeof newPassword !== "string") {
             return res.status(400).json({ message: "Please provide both old password and new password with valid values" });
         }
+        if(oldPassword===newPassword){
+            return res.status(400).json({message:"You have already used this password before"});
+        }
 
-        const memberExist = await prisma.member.findUnique({
+        const userExist = await prisma.member.findUnique({
             where: {
-                id: memberId
+                id: req.user.id
             }
         })
-        if (!memberExist) {
-            return res.status(400).json({ message: "Member not found" });
+        if (!userExist) {
+            return res.status(400).json({ message: "User doesnot exist"});
         }
-        const isOldPasswordMatched = await bcrypt.compare(oldPassword, memberExist.password)
+        const isOldPasswordMatched = await bcrypt.compare(oldPassword, userExist.password)
+
         if (!isOldPasswordMatched) {
             return res.status(400).json({ message: 'Old password doesnot match. Please contact admin for reseting your password' });
         }
         const newHashedPassword = await bcrypt.hash(newPassword, 10);
-        const updatedMember = await prisma.member.update({
+        const updatedUser = await prisma.member.update({
             where: {
-                id: memberId
+                id: req.user.id
             },
             data: {
                 password: {
@@ -238,8 +255,8 @@ export const resetPassword = async (req, res) => {
                 }
             }
         })
-        if (!updatedMember) {
-            return res.status(400).json({ message: "Error while updating password. Please contact admin for this." });
+        if (!updatedUser) {
+            return res.status(400).json({ message: "Error while updating password. Please contact admin." });
         }
         return res.status(200).json({ message: "Password Reset Successfully" })
 
@@ -249,17 +266,14 @@ export const resetPassword = async (req, res) => {
     }
 }
 
-export const getProfile = async (req, res) => {
+/*
+This route is designed for getting the profile information for the user including member, admin and superadmin.
+*/
+export const getProfileDetails = async (req, res) => {
     try {
-        const { memberId } = req.body;
-
-        if (!memberId || !Number.isInteger(memberId)) {
-            return res.status(400).json({ message: "Please provide a memberId." })
-        }
-
-        const memberDetails = await prisma.member.findUnique({
+        const userInfo = await prisma.member.findUnique({
             where: {
-                id: memberId
+                id: req.user.id
             },
             select: {
                 id: true,
@@ -271,11 +285,45 @@ export const getProfile = async (req, res) => {
             }
         })
 
-        if (!memberDetails) {
-            return res.status(400).json({ message: "Member not found" });
+        if (!userInfo) {
+            return res.status(400).json({ message: "User doesnot exist" });
         }
-        return res.status(200).json({ message: "Member Fetched Successfully", memberDetails })
+        return res.status(200).json({ message: "User Fetched Successfully", user:userInfo })
 
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+
+/* 
+
+This route is designed to send the decode information of the cookies for the user based on the token coming from the client side. 
+*/
+
+export const getUserInfo = (req, res) => {
+    try {
+        const {token} = req.cookies;
+        const decodedToken = jwt.verify(token.toString(), process.env.JWT_SECRET);
+        return res.status(200).json({ message: "Token Validation Success", token: decodedToken })
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Error while accessing token values", error });
+    }
+}
+
+
+/* 
+This route if for logging out any user by clearing the cookie.
+*/
+export const logout = async (req, res) => {
+    try {
+        const isCookieDeleted = deleteCookie(res);
+        if (!isCookieDeleted) {
+            return res.status(500).json({ message: "Error while deleting cookies" });
+        }
+        return res.status(200).json({ message: "Logout Successfully" })
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
