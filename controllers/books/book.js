@@ -226,14 +226,13 @@ export const borrowBook = async (req, res) => {
         // Fetch total books with additional info.
         const books = await prisma.book.findMany({
             where: {
-                id: { in: bookIds },
-                total: true,
+                id: { in: bookIds }
             },
             select: {
                 id: true,
                 name: true,
                 bookCode: true,
-                // Get recent return records for the member (within last week)
+
                 borrowedBooks: {
                     where: {
                         memberId,
@@ -317,7 +316,7 @@ export const borrowBook = async (req, res) => {
             }),
             prisma.book.updateMany({
                 where: { id: book.bookId },
-                data: { total: false },
+                data: { available: false },
             }),
         ]);
 
@@ -373,6 +372,7 @@ export const getAllBorrowedBooks = async (req, res) => {
         })
         return res.status(200).json({ message: "Borrowed Books Found", borrowedBooks: allBorrowedBooks })
     } catch (error) {
+        console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
@@ -437,8 +437,8 @@ export const returnBook = async (req, res) => {
             }
             // Update book table to mark books as total
             const updateBook = await tx.book.updateMany({
-                where: { id: { in: bookIds }, total: false },
-                data: { total: true },
+                where: { id: { in: bookIds }, available: false },
+                data: { available: true },
             });
             if (updateBook.count === 0) {
                 throw new Error('Error while returning books');
@@ -447,7 +447,8 @@ export const returnBook = async (req, res) => {
 
         return res.status(200).json({ message: "Books returned successfully." });
     } catch (error) {
-        return res.status(500).json({ message: error.message || "Internal Server Error" });
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
     }
 };
 
@@ -648,7 +649,7 @@ export const getDashBoardInfo = async (req, res) => {
 
         // get DB constraints
         const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints();
-        
+
         // Get all books count by category
         const totalBooksByCategory = await prisma.book.groupBy({
             by: ["category"],
@@ -714,7 +715,7 @@ export const getDashBoardInfo = async (req, res) => {
             countOfCurrentlyBorrowedBooks: currentlyBorrowedBooks.length,
             countOfExpiredBooks: expiredBooks.length,
             expiredBooks,
-            categoryStats, 
+            categoryStats,
             variables: {
                 MAX_BORROW_LIMIT,
                 MAX_RENEWAL_LIMIT,

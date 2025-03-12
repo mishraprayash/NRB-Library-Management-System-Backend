@@ -7,10 +7,13 @@ import cookieParser from "cookie-parser";
 import cluster from "node:cluster";
 import os from "node:os";
 
-import adminRoute from "./routes/adminRoute.js";
+
 import commonRoute from "./routes/commonRoute.js";
 import memberRoute from "./routes/memberRoute.js"
-import superAdminRoute from "./routes/superAdmin.js"
+
+import authRoute from "./routes/authRoutes.js"
+import bookRoute from "./routes/bookRoute.js"
+import variableRoute from "./routes/variableRoutes.js"
 
 
 // Load environment variables
@@ -34,15 +37,17 @@ app.use(
 );
 
 // Routes
-app.use(`${API_PREFIX_VERSION}/admin`, adminRoute);
-app.use(`${API_PREFIX_VERSION}/common`, commonRoute);
+app.use(`${API_PREFIX_VERSION}`, authRoute);
+app.use(`${API_PREFIX_VERSION}/book`, bookRoute)
 app.use(`${API_PREFIX_VERSION}/member`, memberRoute)
-app.use(`${API_PREFIX_VERSION}/superadmin`,superAdminRoute);
+app.use(`${API_PREFIX_VERSION}/common`, commonRoute);
+app.use(`${API_PREFIX_VERSION}/variables`, variableRoute)
+
 
 
 // Default route
 app.get("/", (req, res) => {
-  res.json({ message: "Server is up", status: "OK!" , timestamp:new Date()});
+  res.json({ message: "Server is up", status: "OK!", timestamp: new Date() });
 });
 
 
@@ -54,7 +59,7 @@ app.use((err, req, res, next) => {
 
 // Function to start the server
 const startServer = () => {
-  const server = app.listen(PORT,()=>{
+  const server = app.listen(PORT, () => {
     console.log('Server Started Successfully');
   });
 
