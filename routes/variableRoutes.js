@@ -11,10 +11,10 @@ These routes for updating/creating the variables is only accessible to the super
 */
 
 // getvariables can be accessed by both superadmin and admin
-router.route('/getvariables').get(isCookieAuthorized, admin_superAdmin_both, getVariables)
+router.route('/').get(isCookieAuthorized, getVariables)
 
-router.route('/createvariables').post(isCookieAuthorized, super_admin_only, createVariables);
-router.route('/updatevariables').post(isCookieAuthorized, super_admin_only, updateVariables);
+router.route('/create').post(isCookieAuthorized, super_admin_only, createVariables);
+router.route('/update').post(isCookieAuthorized, super_admin_only, updateVariables);
 
 
 export default router

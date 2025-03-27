@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
 import { setCookie } from "../../lib/helpers.js";
 
+import { sendEmail } from "../../services/emailService.js";
+
 
 export const login = async (req, res) => {
     try {
@@ -31,12 +33,14 @@ export const login = async (req, res) => {
             role: userExist.role,
         }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_LIFETIME })
 
-        const isCookieSet = setCookie(res,accessToken, userExist.role);
-        if(!isCookieSet){
-            return res.status(500).json({message:"Error while setting cookie"});
+        const isCookieSet = setCookie(res, accessToken, userExist.role);
+        if (!isCookieSet) {
+            return res.status(500).json({ message: "Error while setting cookie" });
         }
+        // send email notifying successful login
+        // await sendEmail(userExist.email, "Logged In", `<p> You just logged in from ${req.headers['user-agent']} at ${new Date(Date.now()).toUTCString()}</p>`)
 
-        return res.status(200).json({ message: 'Login Successfully', token: accessToken })
+        return res.status(200).json({ message: 'Login Successfully', token: accessToken, role: userExist.role })
 
     } catch (error) {
         console.log(error);

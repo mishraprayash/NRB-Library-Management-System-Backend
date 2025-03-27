@@ -7,7 +7,7 @@ const router = Router()
 
 router.route('/login').post(login)
 router.route('/admin/register').post(registerAdmin)
-router.route('/sadmin/register').post(registerSuperAdmin)
+router.route('/superadmin/register').post(registerSuperAdmin)
 
 
 export default router

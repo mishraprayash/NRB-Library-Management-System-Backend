@@ -4,10 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { validateMember, getDBConstraints } from "../../lib/helpers.js"
 
-
 /*
 If we need to add a new book to the library, we can use this route.
-
 - Cannot add same book that already exists with the same book name
 - Can add multiple same books at the same time. For e.g  Alchemist (50 pieces)
 */
@@ -80,9 +78,7 @@ export const addBook = async (req, res) => {
 /* 
 If needed to change any details later if there are any typos, this route can
 be used to edit the information. 
-
 - If you change one book, then the details for all same book in the library will be changed.  
-
 */
 
 export const editBook = async (req, res) => {
@@ -168,9 +164,8 @@ export const editBook = async (req, res) => {
 }
 
 /* 
-While a member need to borrow a new book, the admin need to assign a book to that member.
+When a member need to borrow a new book, the admin need to assign a book to that member.
 */
-
 export const borrowBook = async (req, res) => {
     try {
         const { memberId, bookIds } = req.body;
@@ -182,7 +177,6 @@ export const borrowBook = async (req, res) => {
         if (bookIds.some(id => !Number.isInteger(id))) {
             return res.status(400).json({ message: "All bookIds must be integers." });
         }
-
         // Check if member exists
         const memberExists = await validateMember(memberId);
         if (!memberExists) {
@@ -192,7 +186,7 @@ export const borrowBook = async (req, res) => {
         // Get system constraints
         const [BORROW_LIMIT, EXPIRY_DATE, ,] = await getDBConstraints(req, res);
 
-        // Fetch active borrowed books for the member
+        // Fetch already borrowed books for the member
         const booksBorrowedByAMember = await prisma.borrowedBook.findMany({
             where: {
                 memberId,
@@ -209,11 +203,6 @@ export const borrowBook = async (req, res) => {
             }
         });
 
-        // Create a set of bookCodes already borrowed by the member.
-        const currentlyBorrowedBookCodes = new Set(
-            booksBorrowedByAMember.map(record => record.book.bookCode)
-        );
-
         // Check borrowing limit.
         const countOfBorrowedBooks = booksBorrowedByAMember.length;
         if (countOfBorrowedBooks + bookIds.length > BORROW_LIMIT) {
@@ -222,6 +211,12 @@ export const borrowBook = async (req, res) => {
                 borrowedCount: countOfBorrowedBooks
             });
         }
+
+        // Create a set of bookCodes already borrowed by the member.
+        const alreadyBorrowedBookCodes = new Set(
+            booksBorrowedByAMember.map(record => record.book.bookCode)
+        );
+
 
         // Fetch total books with additional info.
         const books = await prisma.book.findMany({
@@ -232,7 +227,6 @@ export const borrowBook = async (req, res) => {
                 id: true,
                 name: true,
                 bookCode: true,
-
                 borrowedBooks: {
                     where: {
                         memberId,
@@ -260,7 +254,7 @@ export const borrowBook = async (req, res) => {
 
         // Process each fetched book.
         for (const book of books) {
-            if (currentlyBorrowedBookCodes.has(book.bookCode)) {
+            if (alreadyBorrowedBookCodes.has(book.bookCode)) {
                 // The member already holds a copy of this book.
                 restrictedBooks.push({
                     bookId: book.id,
@@ -499,7 +493,7 @@ export const renewBook = async (req, res) => {
             return res.status(400).json({ message: "The member hasnot borrowed books with provided ids." });
         }
 
-        const [BORROW_LIMIT, EXPIRY_DATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT] = await getDBConstraints();
+        const [, EXPIRY_DATE, , MAX_RENEWAL_LIMIT] = await getDBConstraints();
         const invalidRenewalBooks = [];
         const validRenewalBooks = [];
         const failedRenew = [];
@@ -521,16 +515,17 @@ export const renewBook = async (req, res) => {
         // Current time for comparison
         const now = new Date();
         // Two days from now
-        const twoDaysFromNow = new Date(now.getTime() + 20 * 24 * 60 * 60 * 1000);
+        const TWO_DAYS = 2;
+        const twoDaysFromNow = new Date(now.getTime() + TWO_DAYS * 24 * 60 * 60 * 1000);
 
         // Process renewals only if expiry date is within 2 days
         for (const validBook of validRenewalBooks) {
             // If the book's expiry date is more than 2 days away, skip renewal.
-            if (validBook.expiryDate > twoDaysFromNow) {
-                invalidRenewalBooks.push({ bookId: validBook.bookId, expiryDate: validBook.expiryDate, message: "Cannot renew before 2 days of expiry date.", bookName: validBook.bookName });
-                continue;
-            }
-            const newExpiryDate = new Date(validBook.expiryDate.getTime() + EXPIRY_DATE * 24 * 60 * 60 * 1000);
+            // if (validBook.expiryDate > twoDaysFromNow) {
+            //     invalidRenewalBooks.push({ bookId: validBook.bookId, expiryDate: validBook.expiryDate, message: "Cannot renew before 2 days of expiry date.", bookName: validBook.bookName });
+            //     continue;
+            // }
+            const newExpiryDate = new Date(Date.now() + EXPIRY_DATE * 24 * 60 * 60 * 1000);
             const renewedBook = await prisma.borrowedBook.updateMany({
                 where: {
                     bookId: validBook.bookId,
@@ -729,3 +724,90 @@ export const getDashBoardInfo = async (req, res) => {
         return res.status(500).json({ message: "Error fetching details", error });
     }
 };
+
+/* 
+This route is for editing the book Details in case needed by the superadmin.
+Only SuperAdmin can do this
+*/
+export const editBookUpdated = async (req, res) => {
+    try {
+
+        const { bookCode, name, authors, publisher, publishedYear, pages, cost, category } = req.body
+
+        if (!name || !publisher || !publishedYear || !category || !authors || pages <= 0 || cost <= 0 || !bookCode) {
+            return res.status(400).json({ message: "Please provided valid values for fields" });
+        }
+
+        if (
+            typeof bookCode !== "string" ||
+            typeof name !== "string" ||
+            typeof publisher !== "string" ||
+            typeof category !== "string" ||
+            !Array.isArray(authors) || authors.length === 0 ||
+            typeof publishedYear !== "number" ||
+            typeof pages !== "number" || pages <= 0 ||
+            typeof cost !== "number" || cost <= 0
+        ) {
+            return res.status(400).json({
+                message: "Invalid data types or values provided"
+
+            })
+        };
+
+        await prisma.book.updateMany({
+            where: {
+                bookCode
+            },
+            data: {
+                name,
+                authors,
+                publisher,
+                publishedYear,
+                cost,
+                pages,
+                category: category.toUpperCase()
+            }
+        });
+
+        return res.json({ message: "Book Updated Successfully" });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+export const addStock = async (req, res) => {
+    try {
+        const { bookCode, stock } = req;
+        if (!bookCode || typeof bookCode !== "string" || !stock || !Number.isInteger(stock) || stock <= 0) {
+            return res.status(400).json({ message: "Please provide a valid bookCode and additional stock value" })
+        }
+
+        const bookData = await prisma.book.findFirst({
+            where: {
+                bookCode
+            }
+        })
+        if (!bookData) {
+            return res.status(400).json({ message: "Invalid book code" });
+        }
+        const addedData = Array.from({ length: stock }, () => ({
+            bookCode,
+            name: bookData.name,
+            authors: bookData.authors,
+            publisher: bookData.publisher,
+            publishedYear: bookData.publishedYear,
+            cost: bookData.cost,
+            pages: bookData.pages,
+            category: bookData.category
+        }))
+    
+        await prisma.book.createMany({ data: addedData })
+        return res.status(200).json({ message: `${stock} stock added successfully` });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}

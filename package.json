@@ -19,6 +19,8 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.10.0",
     "pg": "^8.13.3",
     "prisma": "^6.4.1",
     "uuid": "^11.1.0",

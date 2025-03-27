@@ -24,7 +24,7 @@ router.route('/updatedetails').post(isCookieAuthorized, updateMyProfileDetails);
 router.route('/resetpassword').post(isCookieAuthorized, resetPassword);
 
 // route for logging out the user, works for all the user.
-router.route('/logout').get(isCookieAuthorized, logout);
+router.route('/logout').get(logout);
 
 // route for decoding token and sending plain text values
 router.route('/getme').get(isCookieAuthorized, getUserInfo)

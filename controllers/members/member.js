@@ -1,9 +1,12 @@
 
 import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
-import { getDBConstraints } from "../../lib/helpers.js"
+import { getDBConstraints, validateMember } from "../../lib/helpers.js"
 
 
+/*
+SuperAdmin and Admin only
+*/
 
 export const getMembers = async (req, res) => {
     try {
@@ -27,8 +30,7 @@ export const getMembers = async (req, res) => {
 
                     },
                 },
-            },
-
+            }
         });
 
         allMembers.sort((a, b) => b._count.borrowedBooks - a._count.borrowedBooks)
@@ -97,50 +99,101 @@ export const addMember = async (req, res) => {
     }
 }
 
-export const deleteMember = async (req, res) => {
+export const editMemberDetails = async (req, res) => {
     try {
-        const { memberIds } = req.body;
 
-        if (!Array.isArray(memberIds) || memberIds.length === 0) {
-            return res.json({ message: "Array of member Id required with at least one integer value" });
+        const { memberId, name, username, phoneNo, email, password } = req.body;
+        if (!memberId || !name || !username || !phoneNo || !email) {
+            return res.status(400).json({ message: "All fields are mandatory" });
         }
 
-        // Ensure all elements are valid integers
-        if (!memberIds.every(id => Number.isInteger(id))) {
-            return res.status(400).json({ message: "All member IDs must be integers." });
+        if (!Number.isInteger(memberId) || typeof name !== "string" || typeof username !== "string" || typeof phoneNo !== "string" || typeof email !== "string") {
+            return res.status(400).json({ message: "Invalid data types" });
         }
 
-        // Fetch only existing members
-        const existingMembers = await prisma.member.findMany({
+        const memberExist = await prisma.member.findUnique({
             where: {
-                borrowedBooks: {
-                    none: {}, // No borrowed books associated
-                },
-            },
-            select: {
-                id: true,
-                name: true,
-                username: true,
-            },
-        });
-
-        const validMemberIds = existingMembers.map((member) => member.id);
-
-        const invalidMemberIds = memberIds.filter((id) => !validMemberIds.includes(id))
-
-        const deletedMembers = await prisma.member.deleteMany({
-            where: { id: { in: validMemberIds } }
+                id: memberId
+            }
         })
 
-        if (deletedMembers.count === 0) {
-            return res.status(400).json({ message: "Provide valid member-ids" });
+        // validating member exists.
+        if (!memberExist) {
+            return res.status(400).json({ message: "Member doesnot exist" });
         }
 
-        return res.status(200).json({
-            message: "Successfully Deleted Member",
-            successDeletes: deletedMembers.count,
-            invalidIds: invalidMemberIds
-        });
+        if (password) {
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const updateMember = await prisma.member.update({
+                where: {
+                    id: memberId
+                },
+                data: {
+                    name,
+                    username,
+                    phoneNo,
+                    email,
+                    password: hashedPassword
+                }
+            })
+            if (!updateMember) {
+                return res.status(400).json({ message: "Error while updating member details" });
+            }
+            return res.status(200).json({ message: "Member Updated Successfully along with password" });
+
+        }
+        else {
+            const updateMember = await prisma.member.update({
+                where: {
+                    id: memberId
+                },
+                data: {
+                    name,
+                    username,
+                    phoneNo,
+                    email
+                }
+            })
+            if (!updateMember) {
+                return res.status(400).json({ message: "Error while updating member" });
+            }
+            return res.status(200).json({ message: "Member Updated Successfully" })
+
+        }
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+/* 
+SuperAdmin only
+*/
+export const deleteMember = async (req, res) => {
+    try {
+        const { memberId } = req.body;
+
+        if (!memberId || !Number.isInteger(memberId)) {
+            return res.status(500).json({ message: "Please provide a valid memberId" })
+        }
+        const memberExist = await validateMember(memberId);
+
+        if (!memberExist) {
+            return res.status(400).json({ message: `Member with this id ${memberId} doesnot exist` });
+        }
+
+        const deletedMember = await prisma.member.delete({
+            where: {
+                id:memberId
+            }
+        })
+
+        if (!deletedMember) {
+            return res.status(400).json({ message: 'Error while deleting member' });
+        }
+
+        return res.status(200).json({ message: "Member Deleted Successfully" });
 
     } catch (error) {
         console.log(error)
@@ -149,20 +202,19 @@ export const deleteMember = async (req, res) => {
 
 }
 
+
+/* 
+Fetching dashboard info for a member.
+*/
+
 export const getDashboardDetails = async (req, res) => {
     try {
-        const { memberId } = req.body;
-
-        // Validate input
-        if (!memberId || !Number.isInteger(memberId)) {
-            return res.status(400).json({ message: "Please provide a valid memberId" });
-        }
 
         const [, EXPIRY_DATE] = await getDBConstraints(req, res);
 
         // Fetch all relevant data in a single query
         const borrowedBooks = await prisma.borrowedBook.findMany({
-            where: { memberId },
+            where: { memberId: req.user.id },
             select: {
                 id: true,
                 returned: true,
@@ -210,15 +262,18 @@ export const getDashboardDetails = async (req, res) => {
     }
 };
 
+
+/* 
+
+Fetching past borrowed books for a member.
+*/
+
 export const getPastBorrowedBooks = async (req, res) => {
     try {
-        const { memberId } = req.body;
-        if (!memberId || !Number.isInteger(memberId)) {
-            return res.status(400).json({ messsage: "Please provide a valid member Id" });
-        }
+
         const pastBorrowedBooks = await prisma.borrowedBook.findMany({
             where: {
-                memberId,
+                memberId: req.user.id,
                 returned: true
             },
             select: {
@@ -246,73 +301,8 @@ export const getPastBorrowedBooks = async (req, res) => {
     }
 }
 
-export const editMemberDetails = async (req, res) => {
-    try {
 
-        const { memberId, name, username, phoneNo, email, password } = req.body;
-        if (!memberId || !name || !username || !phoneNo || !email) {
-            return res.status(400).json({ message: "All fields are mandatory" });
-        }
 
-        if (!Number.isInteger(memberId) || typeof name !== "string" || typeof username !== "string" || typeof phoneNo !== "string" || typeof email !== "string") {
-            return res.status(400).json({ message: "Invalid data types" });
-        }
-
-        const memberExist = await prisma.member.findUnique({
-            where: {
-                id: memberId
-            }
-        })
-
-        // validating member exists.
-        if (!memberExist) {
-            return res.status(400).json({ message: "Member doesnot exist" });
-        }
-
-        if (password) {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            const updateMember = await prisma.member.update({
-                where: {
-                    id: memberId
-                },
-                data: {
-                    name,
-                    username,
-                    phoneNo,
-                    email,
-                    password: hashedPassword
-                }
-            })
-            if (!updateMember) {
-                return res.status(400).json({ message: "Error while updating member details" });
-            }
-            return res.status(200).json({ message: "Member Updated Successfully along with password"});
-
-        }
-        else {
-            const updateMember = await prisma.member.update({
-                where: {
-                    id: memberId
-                },
-                data: {
-                    name,
-                    username,
-                    phoneNo,
-                    email
-                }
-            })
-            if (!updateMember) {
-                return res.status(400).json({ message: "Error while updating member" });
-            }
-            return res.status(200).json({ message: "Member Updated Successfully" })
-
-        }
-
-    } catch (error) {
-        console.log(error);
-        return res.status(500).json({ message: "Internal Server Error" });
-    }
-}
 
 
 

@@ -13,7 +13,11 @@ This route gives the list of all the books in the library
 export const getAllBooks = async (req, res) => {
     try {
 
-        const allBooks = await prisma.book.findMany();
+        const allBooks = await prisma.book.findMany({
+            orderBy:{
+                createdAt:'desc'
+            }
+        });
 
         /* 
         Grouping books by bookCode as same book have same bookCode but different id.
@@ -85,6 +89,9 @@ export const getAvailableBooks = async (req, res) => {
         const allBooks = await prisma.book.findMany({
             where: {
                 available: true
+            },
+            orderBy:{
+                createdAt:'desc'
             }
         });
 
@@ -196,7 +203,7 @@ export const updateMyProfileDetails = async (req, res) => {
 
         const updateUser = await prisma.member.update({
             where: {
-                id: userId
+                id: req.user.id
             },
             data: {
                 name,
@@ -321,7 +328,7 @@ export const logout = async (req, res) => {
     try {
         const isCookieDeleted = deleteCookie(res);
         if (!isCookieDeleted) {
-            return res.status(500).json({ message: "Error while deleting cookies" });
+            return res.status(500).json({ message: "Error while deleting cookies. Couldnot Logout" });
         }
         return res.status(200).json({ message: "Logout Successfully" })
     } catch (error) {

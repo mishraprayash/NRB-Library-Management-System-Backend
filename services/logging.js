@@ -36,3 +36,8 @@ class DatabaseQueue {
 }
 
 export default new DatabaseQueue({ flushInterval: 5000, batchSize: 10 });
+
+
+
+
+
