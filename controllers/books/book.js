@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { validateMember, getDBConstraints } from "../../lib/helpers.js"
 
-/*
+/**
 If we need to add a new book to the library, we can use this route.
 - Cannot add same book that already exists with the same book name
 - Can add multiple same books at the same time. For e.g  Alchemist (50 pieces)
@@ -75,7 +75,7 @@ export const addBook = async (req, res) => {
     }
 }
 
-/* 
+/** 
 If needed to change any details later if there are any typos, this route can
 be used to edit the information. 
 - If you change one book, then the details for all same book in the library will be changed.  
@@ -163,7 +163,7 @@ export const editBook = async (req, res) => {
     }
 }
 
-/* 
+/** 
 When a member need to borrow a new book, the admin need to assign a book to that member.
 */
 export const borrowBook = async (req, res) => {
@@ -177,6 +177,7 @@ export const borrowBook = async (req, res) => {
         if (bookIds.some(id => !Number.isInteger(id))) {
             return res.status(400).json({ message: "All bookIds must be integers." });
         }
+
         // Check if member exists
         const memberExists = await validateMember(memberId);
         if (!memberExists) {
@@ -184,7 +185,7 @@ export const borrowBook = async (req, res) => {
         }
 
         // Get system constraints
-        const [BORROW_LIMIT, EXPIRY_DATE, ,] = await getDBConstraints(req, res);
+        const [BORROW_LIMIT, EXPIRY_DATE] = await getDBConstraints(req, res);
 
         // Fetch already borrowed books for the member
         const booksBorrowedByAMember = await prisma.borrowedBook.findMany({
@@ -203,7 +204,7 @@ export const borrowBook = async (req, res) => {
             }
         });
 
-        // Check borrowing limit.
+        // Check borrowing limit
         const countOfBorrowedBooks = booksBorrowedByAMember.length;
         if (countOfBorrowedBooks + bookIds.length > BORROW_LIMIT) {
             return res.status(400).json({
@@ -212,13 +213,12 @@ export const borrowBook = async (req, res) => {
             });
         }
 
-        // Create a set of bookCodes already borrowed by the member.
+        // Create a set of bookCodes already borrowed by the member
         const alreadyBorrowedBookCodes = new Set(
             booksBorrowedByAMember.map(record => record.book.bookCode)
         );
 
-
-        // Fetch total books with additional info.
+        // Fetch books the member is trying to borrow
         const books = await prisma.book.findMany({
             where: {
                 id: { in: bookIds }
@@ -227,46 +227,67 @@ export const borrowBook = async (req, res) => {
                 id: true,
                 name: true,
                 bookCode: true,
-                borrowedBooks: {
-                    where: {
-                        memberId,
-                        returned: true,
-                        returnedDate: {
-                            gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                        }
-                    },
+            }
+        });
+
+        // Check for invalid bookIds
+        const fetchedBookIds = new Set(books.map(book => book.id));
+        const invalidBooksIds = bookIds.filter(id => !fetchedBookIds.has(id));
+
+        // If no valid books found, return error
+        if (books.length === 0) {
+            return res.status(400).json({
+                message: "No valid books found to borrow.",
+                invalidBooksIds
+            });
+        }
+
+        // Collect bookCodes to check for recent returns
+        const bookCodesToCheck = books.map(book => book.bookCode);
+
+        // Check if any of these bookCodes were recently returned by the member
+        const recentlyReturnedBooks = await prisma.borrowedBook.findMany({
+            where: {
+                memberId,
+                returned: true,
+                returnedDate: {
+                    gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+                },
+                book: {
+                    bookCode: {
+                        in: bookCodesToCheck
+                    }
+                }
+            },
+            select: {
+                book: {
                     select: {
-                        id: true,
-                        book: {
-                            select: {
-                                id: true,
-                                name: true,
-                                bookCode: true
-                            }
-                        }
+                        bookCode: true
                     }
                 }
             }
         });
 
+        const restrictedBookCodes = new Set(
+            recentlyReturnedBooks.map(entry => entry.book.bookCode)
+        );
+
+        // Categorize books into allowed and restricted
         const allowedBooksIds = [];
         const restrictedBooks = [];
 
-        // Process each fetched book.
         for (const book of books) {
             if (alreadyBorrowedBookCodes.has(book.bookCode)) {
-                // The member already holds a copy of this book.
                 restrictedBooks.push({
                     bookId: book.id,
                     message: "Book is already borrowed",
                     bookName: [book.name]
                 });
-            } else if (book.borrowedBooks.length > 0) {
-                // The member has returned this book within the last week.
+            } else if (restrictedBookCodes.has(book.bookCode)) {
                 restrictedBooks.push({
                     bookId: book.id,
-                    message: "Book was just returned within last week",
-                    bookName: book.borrowedBooks.map(borrowedBook => borrowedBook.book.name)
+                    message: "A book with the same code was returned within the last week.",
+                    bookName: [book.name]
                 });
             } else {
                 allowedBooksIds.push({
@@ -276,18 +297,15 @@ export const borrowBook = async (req, res) => {
             }
         }
 
-        // Determine invalid bookIds (books not fetched due to being untotal or non-existent)
-        const fetchedBookIds = new Set(books.map(book => book.id));
-        const invalidBooksIds = bookIds.filter(id => !fetchedBookIds.has(id));
-
-        if (!allowedBooksIds.length) {
+        if (allowedBooksIds.length === 0) {
             return res.status(400).json({
-                message: "You cannot borrow these books as you have borrowed them already or returned them within the last week.",
-                restrictedBooks
+                message: "You cannot borrow these books due to existing borrows or recent returns.",
+                restrictedBooks,
+                invalidBooksIds
             });
         }
 
-        // Create transactions only for allowed books.
+        // Create transactions for allowed books
         const transactions = allowedBooksIds.flatMap(book => [
             prisma.borrowedBook.create({
                 data: {
@@ -316,7 +334,7 @@ export const borrowBook = async (req, res) => {
 
         const transactionResults = await prisma.$transaction(transactions);
 
-        // Extract only successfully borrowed books.
+        // Extract successful borrows
         const successfulBorrows = [];
         for (let i = 0; i < transactionResults.length; i += 2) {
             if (transactionResults[i + 1].count > 0) {
@@ -334,9 +352,9 @@ export const borrowBook = async (req, res) => {
         console.error(error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
-}
+};
 
-/* 
+/**
 gives all the borrwed books list by all members.
 admin or superadmin can access this route.
 */
@@ -371,7 +389,7 @@ export const getAllBorrowedBooks = async (req, res) => {
     }
 }
 
-/*
+/**
 While returning a book, admin will return it from the member borrowed books list.
 admin or superadmin can only access this route
 */
@@ -446,8 +464,8 @@ export const returnBook = async (req, res) => {
     }
 };
 
-/*
-When renewning a book, admin will help renew the book following certain constraints.
+/** 
+* When renewning a book, admin will help renew the book following certain constraints.
 */
 export const renewBook = async (req, res) => {
     try {
@@ -470,7 +488,7 @@ export const renewBook = async (req, res) => {
             return res.status(400).json({ message: "The member doesnot exist." });
         }
 
-        // Fetch all borrowed books
+        // Fetch all borrowed books for a member
         const borrowedBooksByMember = await prisma.borrowedBook.findMany({
             where: {
                 bookId: { in: bookIds },
@@ -508,15 +526,15 @@ export const renewBook = async (req, res) => {
             }
         });
 
-        if (!validRenewalBooks.length) {
-            return res.status(400).json({ message: "The member hasnot borrowed these books" });
-        }
+        // if (!validRenewalBooks.length) {
+        //     return res.status(400).json({ message: "The member hasnot borrowed these books" });
+        // }
 
         // Current time for comparison
-        const now = new Date();
-        // Two days from now
-        const TWO_DAYS = 2;
-        const twoDaysFromNow = new Date(now.getTime() + TWO_DAYS * 24 * 60 * 60 * 1000);
+        // const now = new Date();
+        // // Two days from now
+        // const TWO_DAYS = 2;
+        // const twoDaysFromNow = new Date(now.getTime() + TWO_DAYS * 24 * 60 * 60 * 1000);
 
         // Process renewals only if expiry date is within 2 days
         for (const validBook of validRenewalBooks) {
@@ -563,7 +581,7 @@ export const renewBook = async (req, res) => {
     }
 };
 
-/*
+/** 
 This route is for deleting same book and all of them at once. For example there might be multiple same books in the library.
 Only SuperAdmin can access this route
 */
@@ -597,7 +615,7 @@ export const deleteSameMultipleBook = async (req, res) => {
     }
 }
 
-/*
+/**
 This route is for deleting same books but with specific count. For example there might be 50 books which are same and you want to delete only 5 of them.
 Only SuperAdmin can access this route
 */
@@ -618,14 +636,16 @@ export const deleteBookByCount = async (req, res) => {
             return res.status(400).json({ message: `You cannot delete more than ${availableBooks.length} as other books are borrowed by the members` });
         }
 
-        Array.from(count).map(async () => {
-            await prisma.book.delete({
-                where: {
-                    bookCode,
-                    available: true
-                }
+        await Promise.all(
+            Array.from({ length: count }).map(async () => {
+                return prisma.book.delete({
+                    where: {
+                        bookCode,
+                        available: true
+                    }
+                });
             })
-        })
+        );
         return res.status(200).json({ message: `${count} Books Deleted Successfully` });
 
     } catch (error) {
@@ -634,7 +654,7 @@ export const deleteBookByCount = async (req, res) => {
     }
 }
 
-/*
+/**
 This route is for providing information to show in the admin and superadmin dashboard
 Both Admin and SuperAdmin can access this route
 */
@@ -643,7 +663,7 @@ export const getDashBoardInfo = async (req, res) => {
     try {
 
         // get DB constraints
-        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints();
+        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] =  await getDBConstraints();
 
         // Get all books count by category
         const totalBooksByCategory = await prisma.book.groupBy({
@@ -725,7 +745,7 @@ export const getDashBoardInfo = async (req, res) => {
     }
 };
 
-/* 
+/**  
 This route is for editing the book Details in case needed by the superadmin.
 Only SuperAdmin can do this
 */
@@ -777,6 +797,7 @@ export const editBookUpdated = async (req, res) => {
     }
 }
 
+
 export const addStock = async (req, res) => {
     try {
         const { bookCode, stock } = req;
@@ -811,3 +832,5 @@ export const addStock = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
+
+
