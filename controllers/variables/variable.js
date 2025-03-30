@@ -1,11 +1,6 @@
 
 import prisma from "../../lib/prisma.js";
 
-
-
-// All require superAdmin permission
-
-
 /*
 These variables are the MAX_BORROW_LIMIT, MAX_RENEWAL_LIMIT and EXPIRY_DATE which can be updated by the admin. 
 */

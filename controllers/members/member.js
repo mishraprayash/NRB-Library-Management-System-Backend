@@ -167,7 +167,7 @@ export const editMemberDetails = async (req, res) => {
     }
 }
 
-/* 
+/**
 SuperAdmin only
 */
 export const deleteMember = async (req, res) => {
@@ -202,8 +202,7 @@ export const deleteMember = async (req, res) => {
 
 }
 
-
-/* 
+/**
 Fetching dashboard info for a member.
 */
 
@@ -262,12 +261,9 @@ export const getDashboardDetails = async (req, res) => {
     }
 };
 
-
-/* 
-
+/**
 Fetching past borrowed books for a member.
 */
-
 export const getPastBorrowedBooks = async (req, res) => {
     try {
 

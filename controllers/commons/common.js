@@ -162,7 +162,7 @@ export const getBorrowedBooksForMember = async (req, res) => {
     }
 }
 
-/* 
+/**
 This route is designed for member to update their profile information. 
 For example name, phoneNo, and email can be changed by user.
 */
@@ -225,7 +225,7 @@ export const updateMyProfileDetails = async (req, res) => {
 }
 
 
-/* 
+/**
 This route is for changing the password for the user which requires user for them to know their old password.
 */
 export const resetPassword = async (req, res) => {
@@ -273,7 +273,7 @@ export const resetPassword = async (req, res) => {
     }
 }
 
-/*
+/**
 This route is designed for getting the profile information for the user including member, admin and superadmin.
 */
 export const getProfileDetails = async (req, res) => {
@@ -304,8 +304,7 @@ export const getProfileDetails = async (req, res) => {
 }
 
 
-/* 
-
+/**
 This route is designed to send the decode information of the cookies for the user based on the token coming from the client side. 
 */
 
@@ -321,7 +320,7 @@ export const getUserInfo = (req, res) => {
 }
 
 
-/* 
+/**
 This route if for logging out any user by clearing the cookie.
 */
 export const logout = async (req, res) => {
