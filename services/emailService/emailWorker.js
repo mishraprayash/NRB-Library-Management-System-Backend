@@ -5,10 +5,9 @@
  */
 
 import prisma from "../../lib/prisma.js";
-import { welcomeQueue } from "../bullMQ/Queue.js";
 import { sendEmail } from "./emailConfig.js";
 import { generateEmailTemplate } from "./emailTemplate.js";
-import { reminderQueue } from "../bullMQ/Queue.js";
+import { reminderQueue, verificationEmailQueue, welcomeQueue } from "../bullMQ/Queue.js";
 
 // Configuration constants
 const REMINDER_WINDOW = 2 * 24 * 60 * 60 * 1000; // 2 days 
@@ -36,7 +35,8 @@ export const events = {
     'user-register': 'user-register',
     'user-delete': 'user-delete',
     'user-edit': 'user-edit',
-    'password-reset': 'password-reset'
+    'password-reset': 'password-reset',
+    'send-verification-email': 'send-verification-email'
   },
 }
 
@@ -171,20 +171,31 @@ export async function sendWelcomeNotification(email, username, password, role) {
 }
 
 
+export async function sendVerificationEmail(email, username, role, verificationToken) {
+  try {
+    const template = generateEmailTemplate(events.userEvents['send-verification-email'], { email, username, role, verificationToken })
+    await verificationEmailQueue.add('verification-email-queue', { to: email, subject: template.subject, message: template.html })
+  } catch (error) {
+    console.error(`❌ Failed to send welcome email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+
 // Initialize scheduled tasks
 export async function runBackgroundReapeatableReminderQueue() {
- 
- await reminderQueue.add(
-  'daily-reminder-check',
-  {}, 
-  {
+
+  await reminderQueue.add(
+    'daily-reminder-check',
+    {},
+    {
       repeat: {
-          pattern: CRON_SCHEDULE,
-          tz: 'UTC' // Or your local timezone
+        pattern: CRON_SCHEDULE,
+        tz: 'UTC' // Or your local timezone
       },
-      
+
       jobId: 'daily-book-reminder' // Fixed ID to avoid duplicates
-  }
-);
+    }
+  );
 
 }

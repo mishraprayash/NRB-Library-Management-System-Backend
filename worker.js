@@ -98,9 +98,13 @@ try {
   if (!process.env.EMAIL_AUTH_USER || !process.env.EMAIL_AUTH_PASSWORD) {
     throw new Error('Email credentials not found in environment variables');
   }
+
+  // enabling workers
   runEmailWorkers();
   
   logger.info('Starting background reminder queue...');
+
+  // sets up a cron jobs for trigger reminderEmailWorker on a scheduled time
   runBackgroundReapeatableReminderQueue();
   
   logger.info('All workers started successfully');

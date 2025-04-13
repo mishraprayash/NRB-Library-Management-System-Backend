@@ -1,146 +1,81 @@
 /**
  * Authentication and Authorization Middleware
- * 
- * Provides centralized middleware for authenticating requests and authorizing
- * users based on their roles. Supports both JWT Bearer token and cookie-based
- * authentication with role-based access control.
+ * Handles user authentication and role-based access control
  */
 
 import jwt from "jsonwebtoken";
 import JsonWebTokenError from "jsonwebtoken/lib/JsonWebTokenError.js";
 
-/**
- * Authentication error response helper
- * 
- * @param {Object} res - Express response object
- * @param {number} status - HTTP status code
- * @param {string} message - Error message
- * @param {string} details - Additional error context
- * @returns {Object} Response object
- */
-const authError = (res, status, message, details) => {
-  return res.status(status).json({ 
-    message,
-    details: details || undefined
-  });
+// Helper function to send authentication errors
+const sendAuthError = (res, status, message, details = null) => {
+  return res.status(status).json({ message, details });
 };
 
-/**
- * Generic authentication middleware
- * 
- * @param {Function} tokenExtractor - Function that extracts the token from the request
- * @returns {Function} Express middleware
- */
-const createAuthMiddleware = (tokenExtractor) => {
-  return async (req, res, next) => {
-    try {
-      // Extract token using the provided function
-      const token = tokenExtractor(req);
-      
-      if (!token) {
-        return authError(res, 401, "Authentication required", "No token provided");
-      }
-      
-      // Verify and decode token
-      const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decodedToken;
-      next();
-    } catch (error) {
-      if (error instanceof JsonWebTokenError) {
-        return authError(res, 401, "Authentication failed", "Invalid or expired token");
-      }
-      
-      console.error("Authentication error:", error);
-      return authError(res, 500, "Internal server error", "Error during authentication");
-    }
-  };
-};
-
-/**
- * Extract token from Authorization header
- * 
- * @param {Object} req - Express request object
- * @returns {string|null} The token or null if not found
- */
-const extractBearerToken = (req) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return null;
-  }
-  return authHeader.split(" ")[1] || null;
-};
-
-/**
- * Extract token from cookies
- * 
- * @param {Object} req - Express request object
- * @returns {string|null} The token or null if not found
- */
-const extractCookieToken = (req) => {
+// Get token from cookies
+const getTokenFromCookie = (req) => {
   return req.cookies?.token || null;
 };
 
-/**
- * Create a role-based authorization middleware
- * 
- * @param {Function} roleMatcher - Function that determines if user has required role(s)
- * @param {string} errorMessage - Error message when access is denied
- * @returns {Function} Express middleware
- */
-const createRoleMiddleware = (roleMatcher, errorMessage) => {
+// Verify JWT token and attach user to request
+const verifyToken = async (req, res, next) => {
+  try {
+    const token = getTokenFromCookie(req);
+    
+    if (!token) {
+      return sendAuthError(res, 401, "Authentication required", "No token provided");
+    }
+    
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decodedToken;
+    next();
+  } catch (error) {
+    if (error instanceof JsonWebTokenError) {
+      return sendAuthError(res, 401, "Authentication failed", "Invalid or expired token");
+    }
+    console.error("Authentication error:", error);
+    return sendAuthError(res, 500, "Internal server error", "Error during authentication");
+  }
+};
+
+// Check if user has required role
+const checkRole = (role, allowedRoles) => {
+  return allowedRoles.includes(role);
+};
+
+// Create role-based middleware
+const createRoleMiddleware = (allowedRoles, errorMessage) => {
   return (req, res, next) => {
     try {
-      // Ensure user is authenticated
       if (!req.user) {
-        return authError(res, 401, "Authentication required", "User is not authenticated");
+        return sendAuthError(res, 401, "Authentication required", "User is not authenticated");
       }
 
-      // Check if the user's role matches the required role(s)
-      if (roleMatcher(req.user.role)) {
+      if (checkRole(req.user.role, allowedRoles)) {
         next();
       } else {
-        return authError(res, 403, "Access denied", errorMessage);
+        return sendAuthError(res, 403, "Access denied", errorMessage);
       }
     } catch (error) {
       console.error("Role validation error:", error);
-      return authError(res, 500, "Internal server error", "Error validating permissions");
+      return sendAuthError(res, 500, "Internal server error", "Error validating permissions");
     }
   };
 };
 
-// Middleware for JWT authentication via Authorization header
-export const isAuthorized = createAuthMiddleware(extractBearerToken);
+// Export middleware functions
+export const isCookieAuthorized = verifyToken;
 
-// Middleware for JWT authentication via cookies
-export const isCookieAuthorized = createAuthMiddleware(extractCookieToken);
-
-// Middleware for admin and superadmin access
 export const admin_superAdmin_both = createRoleMiddleware(
-  (role) => role === "ADMIN" || role === "SUPERADMIN",
+  ["ADMIN", "SUPERADMIN"],
   "This operation requires administrator privileges"
 );
 
-// Middleware for superadmin access only
 export const super_admin_only = createRoleMiddleware(
-  (role) => role === "SUPERADMIN",
+  ["SUPERADMIN"],
   "This operation requires superadmin privileges"
 );
 
-// Middleware for member access only
 export const member_only = createRoleMiddleware(
-  (role) => role === "MEMBER",
+  ["MEMBER"],
   "This operation is only available to library members"
 );
-
-/**
- * Middleware that checks if the user has any of the specified roles
- * 
- * @param {...string} allowedRoles - Roles that should be allowed access
- * @returns {Function} Express middleware
- */
-export const hasAnyRole = (...allowedRoles) => {
-  return createRoleMiddleware(
-    (role) => allowedRoles.includes(role),
-    `This operation requires one of these roles: ${allowedRoles.join(", ")}`
-  );
-};

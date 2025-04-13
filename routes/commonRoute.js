@@ -6,7 +6,8 @@ import {
     getProfileDetails,
     getUserInfo,
     logout,
-    verifyEmail
+    verifyEmail,
+    sendVerifyEmail
 } from "../controllers/commons/common.js"
 
 import { isCookieAuthorized } from "../middleware/authMiddleware.js";
@@ -61,5 +62,7 @@ router.route('/getme').get(isCookieAuthorized, getUserInfo);
  * @access Public
  */
 router.route('/verifyemail').get(verifyEmail);
+
+router.route('/sendverificationemail').get(isCookieAuthorized, sendVerifyEmail)
 
 export default router

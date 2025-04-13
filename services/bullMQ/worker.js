@@ -3,6 +3,7 @@ import { sendEmail } from "../emailService/emailConfig.js";
 import { handleScheduledBookReminders } from "../emailService/emailWorker.js";
 
 
+
 async function welcomeEmailWorker() {
     const emailWorker = new Worker('email-queue',
         async (job) => {
@@ -88,7 +89,7 @@ async function reminderEmailWorker() {
     const reminderWorker = new Worker('reminder-queue',
         async (job) => {
             console.log(`Processing reminder job: ${job.id}`);
-            
+
             try {
                 // Execute the existing function as-is
                 await handleScheduledBookReminders();
@@ -142,7 +143,80 @@ async function reminderEmailWorker() {
     return reminderWorker;
 }
 
-export function runEmailWorkers(){
+async function verificationEmailWorker() {
+    const verificationEmailWorker = new Worker('verification-email-queue',
+        async (job) => {
+            console.log(`Processing reminder job: ${job.id}`);
+
+            const {to, subject, message} = job.data;
+
+            try {
+                await sendEmail(to, subject, message);
+                return { success: true, timestamp: new Date().toISOString() };
+            } catch (error) {
+                console.error(`Error processing reminders:`, error);
+                throw new Error(`Reminder processing failed: ${error.message}`);
+            }
+        },
+        {
+            connection: {
+                host: process.env.REDIS_HOST || 'localhost',
+                port: parseInt(process.env.REDIS_PORT || '6379'),
+                // tls: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+                enableReadyCheck: true,
+                connectTimeout: 10000
+            },
+            concurrency: parseInt(process.env.EMAIL_WORKER_CONCURRENCY || '5'),
+        }
+    );
+
+        // Event handlers with better logging
+        verificationEmailWorker.on('completed', (job, result) => {
+            console.log(`✅ Email job ${job.id} completed successfully:`, result);
+        });
+    
+        verificationEmailWorker.on('failed', (job, error) => {
+            console.error(`❌ Email job ${job.id} failed:`, error);
+            // Could add notification for critical failures here
+        });
+    
+        verificationEmailWorker.on('error', (error) => {
+            console.error('⚠️ Worker error:', error);
+        });
+    
+        verificationEmailWorker.on('stalled', (jobId) => {
+            console.warn(`⚠️ Job ${jobId} stalled and will be reprocessed`);
+        });
+    
+        // Handle various termination signals for graceful shutdown
+        const shutdownGracefully = async (signal) => {
+            console.log(`Received ${signal}. Closing verification email worker...`);
+            try {
+                await verificationEmailWorker.close();
+                console.log('Verification Email worker closed successfully');
+            } catch (err) {
+                console.error('Error closing verification email worker:', err);
+            }
+            process.exit(0);
+        };
+    
+        process.on('SIGTERM', () => shutdownGracefully('SIGTERM'));
+        process.on('SIGINT', () => shutdownGracefully('SIGINT'));
+        process.on('SIGHUP', () => shutdownGracefully('SIGHUP'));
+    
+        console.log('Verification Email Wokerr started successfully');
+        return verificationEmailWorker;
+}
+
+
+export function runEmailWorkers() {
+
+    // worker for sending welcome notification if any new user or admin is added to the system
     welcomeEmailWorker();
+
+    // worker that sends a reminder email for returning books before deadline to the members  
     reminderEmailWorker();
+
+    // 
+    verificationEmailWorker();
 }

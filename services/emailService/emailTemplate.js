@@ -24,7 +24,8 @@ export function generateEmailTemplate(eventType, data) {
         subject: {
             'book-due-reminder': '📚 Library Book Due Reminder',
             'password-reset': '🔑 Password Reset Request',
-            'user-register': '🎉 Welcome to NRB Library'
+            'user-register': '🎉 Welcome to NRB Library',
+            'send-verification-email': '✅ Verify your Email'
         }
     };
 
@@ -54,6 +55,8 @@ function generateHtmlTemplate(eventType, data, lang = 'en') {
             return generatePasswordReset(data, lang);
         case 'user-register':
             return generateRegistration(data, lang);
+        case 'send-verification-email':
+            return generateVerificationEmail(data, lang);
         default:
             throw new Error(`Unsupported email template type: ${eventType}`);
     }
@@ -79,12 +82,6 @@ function generateDueReminder(data, lang = 'en') {
             reminder: 'This is a friendly reminder that the following book(s) are due within 24 hours:',
             returnInfo: 'Please return them on time to avoid late fees.',
             footer: 'Best regards, NRB Library Team'
-        },
-        ne: {
-            greeting: `प्रिय ${safeUsername},`,
-            reminder: 'तलका पुस्तक(हरू) २४ घण्टाभित्र फिर्ता गर्नुपर्नेछ:',
-            returnInfo: 'ढिला शुल्कबाट बच्न समयमा फिर्ता गर्नुहोला।',
-            footer: 'शुभकामना, एनआरबी लाइब्रेरी टीम'
         }
     };
 
@@ -135,14 +132,6 @@ function generatePasswordReset(data, lang = 'en') {
             buttonText: 'Reset Password',
             expiryNote: 'This link expires in 1 hour.',
             footer: 'If you didn\'t request this, please ignore this email.'
-        },
-        ne: {
-            title: 'पासवर्ड रिसेट अनुरोध',
-            greeting: safeUsername ? `नमस्ते ${safeUsername},` : 'नमस्ते,',
-            instructions: 'पासवर्ड रिसेट गर्न तलको बटनमा क्लिक गर्नुहोस्:',
-            buttonText: 'पासवर्ड रिसेट गर्नुहोस्',
-            expiryNote: 'यो लिंक १ घण्टामा समाप्त हुनेछ।',
-            footer: 'यदि तपाईंले यो अनुरोध गर्नुभएन भने, यो इमेल बेवास्ता गर्नुहोला।'
         }
     };
 
@@ -181,7 +170,7 @@ function generatePasswordReset(data, lang = 'en') {
  * @returns {string} HTML template
  */
 function generateRegistration(data, lang = 'en') {
-    const { username, password, role } = data;
+    const { username, role } = data;
     if (!username) throw new Error('Missing username for registration template');
 
     const safeUsername = sanitizeInput(username);
@@ -204,19 +193,6 @@ function generateRegistration(data, lang = 'en') {
                 'Track your borrowing history'
             ],
             footer: 'Happy reading!'
-        },
-        ne: {
-            title: 'एनआरबी लाइब्रेरीमा स्वागत छ',
-            welcome: `स्वागत छ ${safeUsername}!`,
-            content: 'तपाईंको लाइब्रेरी खाता सफलतापूर्वक सिर्जना गरिएको छ।',
-            instructions: 'तपाईं अहिलेबाट यी गर्न सक्नुहुनेछ:',
-            features: [
-                'हाम्रो अनलाइन क्याटालग हेर्न',
-                'पुस्तकहरू ७ दिन अगाडि आरक्षण गर्न',
-                'पुस्तकहरू अनलाइन नविकरण गर्न',
-                'तपाईंको उधारी इतिहास ट्र्याक गर्न'
-            ],
-            footer: 'पठनको आनन्द लिनुहोस्!'
         }
     };
 
@@ -244,4 +220,48 @@ function generateRegistration(data, lang = 'en') {
     </div>
 </body>
 </html>`;
+}
+
+function generateVerificationEmail(data, lang = 'en') {
+    const { email, username, verificationToken, role } = data;
+    if (!email || !username) throw new Error('Missing credentials for sending email');
+
+    const verificationLink = `${process.env.API_BASE_URI}/common/verifyemail?token=${verificationToken}`
+
+    const safeUsername = sanitizeInput(username);
+    const translations = {
+        en: {
+            title: 'VERIFY YOUR EMAIL ADDRESS',
+            welcome: `Welcome ${safeUsername}!`,
+            content: 'Please verify your email through the given link.',
+            footer: 'Happy reading!'
+        }
+    }
+
+    const t = translations[lang];
+
+    return `<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    ${baseStyles}
+</head>
+<body>
+    <div class="email-container">
+        <div class="header">${t.title}</div>
+        <div class="content">
+            <p>${t.welcome}</p>
+            <p>${t.content}
+                <a href="${verificationLink}">Verify Email</a>
+            </p>
+            <p>If the above link doesnot work you can copy the link below and paste it in your browser tab</p>
+            <p>${verificationLink}</p>
+        </div>
+        <div>
+        <div class="footer">${t.footer}</div>
+    </div>
+</body>
+</html>`;
+
 }

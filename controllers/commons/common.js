@@ -3,6 +3,16 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
 import { deleteCookie } from "../../lib/helpers.js"
 
+import { sendResponse } from "../../lib/responseHelper.js"
+
+import { v4 as uuidv4 } from "uuid"
+
+import { version as uuidVersion, validate as uuidValidate } from 'uuid';
+
+
+
+import { sendVerificationEmail } from "../../services/emailService/emailWorker.js";
+
 /*
 The API routes in this file can be accessed by all the users. So that api endpoint for this route starts with  /api/v1/common
 */
@@ -347,6 +357,11 @@ export const verifyEmail = async (req, res) => {
         if (!token) {
             return res.status(400).json({ message: "Token is required" });
         }
+        const isTokenValid = uuidValidate(token) && uuidVersion(token) === 4;
+
+        if (!isTokenValid) {
+            sendResponse(res, 400, "Invalid Verification Token")
+        }
         const member = await prisma.member.findFirst({
             where: {
                 emailVerificationToken: token,
@@ -357,7 +372,7 @@ export const verifyEmail = async (req, res) => {
             }
         })
         if (!member) {
-            return res.status(400).json({ message: "Invalid or expired token" });
+            sendResponse(res, 400, "Invalid Verification Token or Token Expired");
         }
 
         // Mark email as verified and remove the token
@@ -369,11 +384,50 @@ export const verifyEmail = async (req, res) => {
                 emailVerificationTokenExpiry: null,
             },
         });
-        return res.status(200).json({ message: "Email verified successfully" });
+        return sendResponse(res, 200, "Email Verified Successfully");
 
     } catch (error) {
-        console.log(error);
-        return res.status(500).json({ message: "Internal Server Error" });
+        throw error;
+    }
+}
+
+
+/**
+ * Send a verififaction email to a user
+ * 
+ */
+
+export const sendVerifyEmail = async (req, res) => {
+    try {
+
+        const user = await prisma.member.findUnique({
+            where: {
+                id: req.user.id
+            }
+        })
+        if(!user){
+            sendResponse(res,400, 'Invalid User');
+        }
+        if (user.isEmailVerified) {
+            return sendResponse(res, 400, "Email is already verified");
+        }
+
+        const updatedUser = await prisma.member.update({
+            where: {
+                id: req.user.id
+            },
+            data: {
+                emailVerificationToken: uuidv4(),
+                emailVerificationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000)
+            }
+        })
+
+        sendVerificationEmail(user.email, user.username, user.role, updatedUser.emailVerificationToken)
+
+        sendResponse(res, 200, "Verification Link Sent Successfully");
+
+    } catch (error) {
+        throw error
     }
 }
 
