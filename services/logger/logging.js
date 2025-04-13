@@ -1,5 +1,5 @@
 
-import prisma from "../lib/prisma";
+import prisma from "../../lib/prisma";
 
 class DatabaseQueue {
   constructor({ flushInterval = 3000, batchSize = 10 } = {}) {

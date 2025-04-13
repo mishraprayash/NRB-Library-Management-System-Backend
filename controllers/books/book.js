@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 
 import { validateMember, getDBConstraints } from "../../lib/helpers.js"
+import { CLIENT_RENEG_LIMIT } from 'tls';
 
 /**
 If we need to add a new book to the library, we can use this route.
@@ -444,6 +445,7 @@ export const returnBook = async (req, res) => {
                 },
             });
 
+            console.log(updatedBorrowedBooks);
             if (updatedBorrowedBooks.count === 0) {
                 throw new Error('Error while returning books');
             }
@@ -452,6 +454,7 @@ export const returnBook = async (req, res) => {
                 where: { id: { in: bookIds }, available: false },
                 data: { available: true },
             });
+            console.log(updateBook);
             if (updateBook.count === 0) {
                 throw new Error('Error while returning books');
             }
@@ -663,7 +666,7 @@ export const getDashBoardInfo = async (req, res) => {
     try {
 
         // get DB constraints
-        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] =  await getDBConstraints();
+        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] =  await getDBConstraints(req,res);
 
         // Get all books count by category
         const totalBooksByCategory = await prisma.book.groupBy({

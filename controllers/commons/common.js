@@ -1,7 +1,7 @@
 import prisma from "../../lib/prisma.js"
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
-import { deleteCookie} from "../../lib/helpers.js"
+import { deleteCookie } from "../../lib/helpers.js"
 
 /*
 The API routes in this file can be accessed by all the users. So that api endpoint for this route starts with  /api/v1/common
@@ -14,8 +14,8 @@ export const getAllBooks = async (req, res) => {
     try {
 
         const allBooks = await prisma.book.findMany({
-            orderBy:{
-                createdAt:'desc'
+            orderBy: {
+                createdAt: 'desc'
             }
         });
 
@@ -90,8 +90,8 @@ export const getAvailableBooks = async (req, res) => {
             where: {
                 available: true
             },
-            orderBy:{
-                createdAt:'desc'
+            orderBy: {
+                createdAt: 'desc'
             }
         });
 
@@ -182,8 +182,8 @@ export const updateMyProfileDetails = async (req, res) => {
         }
 
         const userExist = await prisma.member.findUnique({
-            where:{
-                id:req.user.id
+            where: {
+                id: req.user.id
             }
         })
 
@@ -234,8 +234,8 @@ export const resetPassword = async (req, res) => {
         if (!oldPassword || !newPassword || typeof oldPassword !== "string" || typeof newPassword !== "string") {
             return res.status(400).json({ message: "Please provide both old password and new password with valid values" });
         }
-        if(oldPassword===newPassword){
-            return res.status(400).json({message:"You have already used this password before"});
+        if (oldPassword === newPassword) {
+            return res.status(400).json({ message: "You have already used this password before" });
         }
 
         const userExist = await prisma.member.findUnique({
@@ -244,7 +244,7 @@ export const resetPassword = async (req, res) => {
             }
         })
         if (!userExist) {
-            return res.status(400).json({ message: "User doesnot exist"});
+            return res.status(400).json({ message: "User doesnot exist" });
         }
         const isOldPasswordMatched = await bcrypt.compare(oldPassword, userExist.password)
 
@@ -295,7 +295,7 @@ export const getProfileDetails = async (req, res) => {
         if (!userInfo) {
             return res.status(400).json({ message: "User doesnot exist" });
         }
-        return res.status(200).json({ message: "User Fetched Successfully", user:userInfo })
+        return res.status(200).json({ message: "User Fetched Successfully", user: userInfo })
 
     } catch (error) {
         console.log(error);
@@ -310,7 +310,7 @@ This route is designed to send the decode information of the cookies for the use
 
 export const getUserInfo = (req, res) => {
     try {
-        const {token} = req.cookies;
+        const { token } = req.cookies;
         const decodedToken = jwt.verify(token.toString(), process.env.JWT_SECRET);
         return res.status(200).json({ message: "Token Validation Success", token: decodedToken })
     } catch (error) {
@@ -335,3 +335,46 @@ export const logout = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
+
+
+/**
+ * Verify email for a user
+ */
+
+export const verifyEmail = async (req, res) => {
+    try {
+        const token = req.query.token;
+        if (!token) {
+            return res.status(400).json({ message: "Token is required" });
+        }
+        const member = await prisma.member.findFirst({
+            where: {
+                emailVerificationToken: token,
+                isEmailVerified: false,
+                emailVerificationTokenExpiry: {
+                    gte: new Date()
+                }
+            }
+        })
+        if (!member) {
+            return res.status(400).json({ message: "Invalid or expired token" });
+        }
+
+        // Mark email as verified and remove the token
+        await prisma.member.update({
+            where: { id: member.id },
+            data: {
+                isEmailVerified: true,
+                emailVerificationToken: null,
+                emailVerificationTokenExpiry: null,
+            },
+        });
+        return res.status(200).json({ message: "Email verified successfully" });
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+

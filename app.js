@@ -14,7 +14,11 @@ import { config } from "dotenv";
 import cookieParser from "cookie-parser";
 import cluster from "node:cluster";
 import os from "node:os";
-import helmet from "helmet";  // Add this dependency for security headers
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import compression from "compression";  // Add compression
+import timeout from "connect-timeout";  // Add timeout handling
+import { v4 as uuidv4 } from "uuid"
 
 // Route imports
 import authRoute from "./routes/authRoutes.js";
@@ -23,8 +27,10 @@ import memberRoute from "./routes/memberRoute.js";
 import commonRoute from "./routes/commonRoute.js";
 import variableRoute from "./routes/variableRoutes.js";
 
-// Service imports
-// import "./services/emailWorker.js";  // Ensure email service initializes
+
+import { errorHandler } from "./middleware/errorHandler.js";
+
+
 
 // Load environment variables
 config();
@@ -33,7 +39,7 @@ config();
 const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const API_PREFIX_VERSION = "/api/v1";
-const WORKER_COUNT = NODE_ENV === "production" 
+const WORKER_COUNT = NODE_ENV === "production"
   ? Math.max(Math.floor(os.cpus().length / 2), 1) // Half of available CPUs in production
   : 1; // Single worker in development
 
@@ -44,14 +50,103 @@ const WORKER_COUNT = NODE_ENV === "production"
 function setupExpressApp() {
   const app = express();
 
-  // Security headers
-  app.use(helmet());
-  
+  app.use((req, res, next) => {
+    req.id = uuidv4();
+    res.setHeader('X-Request-ID', req.id);
+    next();
+  })
+
+  app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+      const duration = Date.now() - start;
+      // console.info({
+      //   requestId: req.id,
+      //   method: req.method,
+      //   url: req.url,
+      //   status: res.statusCode,
+      //   duration: `${duration}ms`,
+      //   userAgent: req.get('user-agent'),
+      //   ip: req.ip
+      // });
+    });
+    next();
+  });
+
+  // Enhanced security headers with specific configurations
+  app.use(helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        mediaSrc: ["'self'"],
+        frameSrc: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: true,
+    crossOriginOpenerPolicy: true,
+    crossOriginResourcePolicy: { policy: "same-site" },
+    dnsPrefetchControl: { allow: false },
+    frameguard: { action: "deny" },
+    hidePoweredBy: true,
+    hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+    ieNoOpen: true,
+    noSniff: true,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+    xssFilter: true,
+  }));
+
+  // Request timeout (10 seconds)
+  app.use(timeout('10s'));
+  app.use((req, res, next) => {
+    if (!req.timedout) next();
+  });
+
+  // Request size limits
+  app.use(express.json({ limit: '10kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+  // Response compression
+  app.use(compression({
+    level: 6, // Compression level (0-9)
+    threshold: '1kb', // Only compress responses larger than 1kb
+    filter: (req, res) => {
+      if (req.headers['x-no-compression']) {
+        return false;
+      }
+      return compression.filter(req, res);
+    }
+  }));
+
   // Standard middleware
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: false }));
   app.use(cookieParser());
-  
+
+  // Global rate limiter - 100 requests per 15 minutes
+  const globalLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, // Limit each IP to 60 requests per windowMs
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    message: 'Too many requests from this IP, please try again after 15 minutes',
+  });
+
+  // Auth route specific limiter - 5 requests per minute
+  const authLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 60, // Limit each IP to 5 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: 'Too many login attempts, please try again after a minute',
+  });
+
+  // Apply global rate limiter to all routes
+  app.use(globalLimiter);
+
   // CORS configuration
   app.use(
     cors({
@@ -70,8 +165,8 @@ function setupExpressApp() {
     });
   }
 
-  // API Routes
-  app.use(`${API_PREFIX_VERSION}`, authRoute);
+  // API Routes with specific rate limiters
+  app.use(`${API_PREFIX_VERSION}`, authLimiter, authRoute); // Apply auth limiter to auth routes
   app.use(`${API_PREFIX_VERSION}/book`, bookRoute);
   app.use(`${API_PREFIX_VERSION}/member`, memberRoute);
   app.use(`${API_PREFIX_VERSION}/common`, commonRoute);
@@ -79,12 +174,12 @@ function setupExpressApp() {
 
   // Health check endpoint
   app.get("/", (req, res) => {
-    res.json({ 
+    res.json({
       message: "Server is up",
-      status: "healthy", 
+      status: "healthy",
       version: process.env.npm_package_version || "1.0.0",
       environment: NODE_ENV,
-      timestamp: new Date() 
+      timestamp: new Date()
     });
   });
 
@@ -93,16 +188,8 @@ function setupExpressApp() {
     res.status(404).json({ message: "Route not found" });
   });
 
-  // Centralized error handling
-  app.use((err, req, res, next) => {
-    const statusCode = err.statusCode || 500;
-    console.error(`[ERROR] ${err.message}`, err.stack);
-    
-    res.status(statusCode).json({ 
-      message: statusCode === 500 ? "Internal server error" : err.message,
-      error: NODE_ENV === "development" ? err.stack : undefined
-    });
-  });
+  // Global Error handler
+  app.use(errorHandler)
 
   return app;
 }
@@ -112,10 +199,10 @@ function setupExpressApp() {
  */
 function startServer() {
   const app = setupExpressApp();
-  
+
   const server = app.listen(PORT, () => {
-    console.log(`🚀 Server started on port ${PORT} (${NODE_ENV} mode)`);
-    console.log(`Worker ${process.pid} started`);
+    console.log(`🚀 Server started on port ${PORT} (${NODE_ENV} mode)---http://localhost:${PORT}`);
+    console.log(`Worker node ${process.pid} started`);
   });
 
   // Handle graceful shutdown
@@ -125,7 +212,7 @@ function startServer() {
       console.log(`Worker ${process.pid} closed connections and exiting`);
       process.exit(0);
     });
-    
+
     // Force shutdown after 10 seconds
     setTimeout(() => {
       console.error(`Worker ${process.pid} could not close connections, forcefully shutting down`);
@@ -144,7 +231,7 @@ function startServer() {
  */
 if (cluster.isPrimary) {
   console.log(`Master process ${process.pid} is running`);
-  console.log(`Starting ${WORKER_COUNT} workers...`);
+  console.log(`Starting ${WORKER_COUNT} node worker(s)...`);
 
   // Fork workers
   for (let i = 0; i < WORKER_COUNT; i++) {

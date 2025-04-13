@@ -2,6 +2,7 @@
 import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
 import { getDBConstraints, validateMember } from "../../lib/helpers.js"
+import { sendWelcomeNotification } from '../../services/emailService/emailWorker.js'
 
 
 /*
@@ -44,14 +45,8 @@ export const getMembers = async (req, res) => {
 
 export const addMember = async (req, res) => {
     try {
-        // const isUserAuthenticated = isAdmin(req) || isSuperAdmin(req);
-        // if (!isUserAuthenticated) {
-        //     return res.status(403).json({ message: "Unauthorized Access" });
-        // }
+
         const { name, username, email, password, phoneNo } = req.body;
-        if (!name || !username || !email || !password || !phoneNo) {
-            return res.status(400).json({ message: "All fields are mandatory" });
-        }
 
         // query if user with same username or email already exists
         const memberExist = await prisma.member.findFirst({
@@ -63,7 +58,7 @@ export const addMember = async (req, res) => {
         })
 
         if (memberExist) {
-            return res.status(400).json({ message: "Username already exists" });
+            return res.status(400).json({ message: "Username, email or phoneNo already exists" });
         }
         // hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -82,6 +77,7 @@ export const addMember = async (req, res) => {
             return res.status(400).json({ message: "Error while adding member" });
         }
 
+        await sendWelcomeNotification(email, username, password, addedMember.role);
         return res.status(200).json({
             message: "Member added successfully", member: {
                 id: addedMember.id,
@@ -185,7 +181,7 @@ export const deleteMember = async (req, res) => {
 
         const deletedMember = await prisma.member.delete({
             where: {
-                id:memberId
+                id: memberId
             }
         })
 
