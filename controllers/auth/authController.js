@@ -25,7 +25,7 @@ export const login = async (req, res) => {
     if (!user) {
       return sendError(res, 404, "User not found");
     }
-    
+
     // Verify password
     const passwordValid = await authService.verifyPassword(password, user.password);
     if (!passwordValid) {
@@ -33,7 +33,8 @@ export const login = async (req, res) => {
     }
 
     // Generate JWT token
-    const accessToken = authService.generateJwtToken(user);
+    const accessToken = authService.generateAccessToken(user);
+    // const refreshToken = authService.generateRefreshToken(user);
 
     // Set authentication cookies
     const isCookieSet = setCookie(res, accessToken, user.role);
@@ -43,8 +44,8 @@ export const login = async (req, res) => {
 
     // Return success response with minimal user information
     return sendResponse(res, 200, "Login successful", {
-      token: accessToken,
       role: user.role,
+      token: accessToken,
       username: user.username
     });
   }
@@ -124,12 +125,6 @@ export const logout = async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict'
     });
-    res.clearCookie('role', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict'
-    });
-
     return sendResponse(res, 200, "Logged out successfully");
   } catch (error) {
     // Let the global error handler deal with unexpected errors

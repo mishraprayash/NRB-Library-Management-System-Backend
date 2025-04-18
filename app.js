@@ -30,8 +30,6 @@ import variableRoute from "./routes/variableRoutes.js";
 
 import { errorHandler } from "./middleware/errorHandler.js";
 
-
-
 // Load environment variables
 config();
 
@@ -108,8 +106,8 @@ function setupExpressApp() {
   });
 
   // Request size limits
-  app.use(express.json({ limit: '10kb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+  app.use(express.json({ limit: '20kb' }));
+  app.use(express.urlencoded({ extended: true, limit: '20kb' }));
 
   // Response compression
   app.use(compression({
@@ -129,7 +127,7 @@ function setupExpressApp() {
   // Global rate limiter - 100 requests per 15 minutes
   const globalLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 60, // Limit each IP to 60 requests per windowMs
+    max: 100, // Limit each IP to 60 requests per windowMs
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: 'Too many requests from this IP, please try again after 15 minutes',

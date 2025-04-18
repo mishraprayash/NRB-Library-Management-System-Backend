@@ -3,15 +3,14 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
 import { deleteCookie } from "../../lib/helpers.js"
 
-import { sendResponse } from "../../lib/responseHelper.js"
+import { sendError, sendResponse } from "../../lib/responseHelper.js"
 
 import { v4 as uuidv4 } from "uuid"
 
 import { version as uuidVersion, validate as uuidValidate } from 'uuid';
 
-
-
 import { sendVerificationEmail } from "../../services/emailService/emailWorker.js";
+
 
 /*
 The API routes in this file can be accessed by all the users. So that api endpoint for this route starts with  /api/v1/common
@@ -355,12 +354,12 @@ export const verifyEmail = async (req, res) => {
     try {
         const token = req.query.token;
         if (!token) {
-            return res.status(400).json({ message: "Token is required" });
+            return sendResponse(res, 400, "Token is required");
         }
         const isTokenValid = uuidValidate(token) && uuidVersion(token) === 4;
 
         if (!isTokenValid) {
-            sendResponse(res, 400, "Invalid Verification Token")
+            return sendResponse(res, 400, "Invalid Verification Token")
         }
         const member = await prisma.member.findFirst({
             where: {
@@ -372,7 +371,7 @@ export const verifyEmail = async (req, res) => {
             }
         })
         if (!member) {
-            sendResponse(res, 400, "Invalid Verification Token or Token Expired");
+            return sendResponse(res, 400, "Invalid Verification Token or Token Expired");
         }
 
         // Mark email as verified and remove the token
@@ -405,8 +404,8 @@ export const sendVerifyEmail = async (req, res) => {
                 id: req.user.id
             }
         })
-        if(!user){
-            sendResponse(res,400, 'Invalid User');
+        if (!user) {
+            sendResponse(res, 400, 'Invalid User');
         }
         if (user.isEmailVerified) {
             return sendResponse(res, 400, "Email is already verified");
@@ -431,4 +430,20 @@ export const sendVerifyEmail = async (req, res) => {
     }
 }
 
+// export const sendResetPasswordLink = async (req, res) => {
+//     try {
+//         const { email } = req.body;
+//         const userExist = await prisma.member.findFirst({
+//             where: {
+//                 email
+//             }
+//         })
+//         if(!userExist){
+//             sendError(res,400,"User with email doesnot exist");
+//         }
+        
+    
+//     } catch (error) {
 
+//     }
+// }

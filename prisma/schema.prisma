@@ -63,6 +63,8 @@ model Member {
   isEmailVerified              Boolean        @default(false)
   emailVerificationToken       String?
   emailVerificationTokenExpiry DateTime?
+  resetPasswordToken           String?
+  resetPasswordTokenExpiry     DateTime
   createdAt                    DateTime       @default(now())
   borrowedBooks                BorrowedBook[]
 }

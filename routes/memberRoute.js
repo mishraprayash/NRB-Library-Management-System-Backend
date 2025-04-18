@@ -6,7 +6,7 @@ import { getDashboardDetails, getPastBorrowedBooks } from "../controllers/member
 
 import { isCookieAuthorized, super_admin_only, admin_superAdmin_both, member_only } from "../middleware/authMiddleware.js";
 import { validateSchema } from "../middleware/validateSchema.js";
-import { userRegisterSchema, getBorrowedBooksSchema } from "../validation/schema.js";
+import { userRegisterSchema, getBorrowedBooksSchema, userEditSchema } from "../validation/schema.js";
 
 import { getMembers, addMember, editMemberDetails, deleteMember } from "../controllers/members/member.js";
 
@@ -34,7 +34,7 @@ router.route('/add').post(isCookieAuthorized, admin_superAdmin_both, validateSch
  * @description Edit member details
  * @access Admin and SuperAdmin
  */
-router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(userRegisterSchema), editMemberDetails);
+router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(userEditSchema), editMemberDetails);
 
 /**
  * @route GET /dashboard

@@ -3,7 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 
 import { validateMember, getDBConstraints } from "../../lib/helpers.js"
-import { CLIENT_RENEG_LIMIT } from 'tls';
+
+import { sendResponse, sendError } from '../../lib/responseHelper.js';
 
 /**
 If we need to add a new book to the library, we can use this route.
@@ -14,25 +15,7 @@ If we need to add a new book to the library, we can use this route.
 export const addBook = async (req, res) => {
     try {
 
-        const { name, authors, publisher, publishedYear, pages, cost, category, stock } = req.body
-
-        if (!name || !publisher || !publishedYear || !authors || pages <= 0 || cost <= 0 || stock <= 0 || !category) {
-            return res.status(400).json({ message: "Please provided valid values for fields" });
-        }
-
-        // Type validation
-        if (
-            typeof name !== "string" ||
-            typeof publisher !== "string" ||
-            typeof category !== "string" ||
-            !Array.isArray(authors) || authors.length === 0 || // Authors should be an array with at least one element
-            typeof publishedYear !== "number" ||
-            typeof pages !== "number" || pages <= 0 ||
-            typeof cost !== "number" || cost <= 0 ||
-            typeof stock !== "number" || stock < 0 // Stock can be 0 but not negative
-        ) {
-            return res.status(400).json({ message: "Invalid data types or values provided" });
-        }
+        const { name, authors, publisher, publishedYear, pages, cost, category, stock } = req.body;
 
         // check if book already exist
         const bookExist = await prisma.book.findFirst({
@@ -44,8 +27,9 @@ export const addBook = async (req, res) => {
             }
         })
         if (bookExist) {
-            return res.status(400).json({ message: "Book Already Exist. If you have to add the same book, increase the stock value from the edit option" });
+            return sendError(res, 404, "Book with same name already exists");
         }
+
         // create a random-id for bookCode
         const uuid = uuidv4();
 
@@ -68,7 +52,9 @@ export const addBook = async (req, res) => {
             data: booksToAdd
         })
 
-        return res.status(200).json({ message: `Book Added Successfully`, count: addedBooks.count });
+        return sendResponse(res, 200, "Books Added Successfully", { count: addedBooks.count });
+
+        // return res.status(200).json({ message: `Book Added Successfully`, count: addedBooks.count });
 
     } catch (error) {
         console.log(error)
@@ -399,17 +385,17 @@ export const returnBook = async (req, res) => {
     try {
         const { memberId, bookIds } = req.body;
 
-        if (!memberId || !bookIds) {
-            return res.status(400).json({ message: "Please provide both memberId and bookIds" });
-        }
-        if (!Number.isInteger(memberId) || !Array.isArray(bookIds)) {
-            return res.status(400).json({ message: "Invalid data types for memberId or bookIds" });
-        }
+        // if (!memberId || !bookIds) {
+        //     return res.status(400).json({ message: "Please provide both memberId and bookIds" });
+        // }
+        // if (!Number.isInteger(memberId) || !Array.isArray(bookIds)) {
+        //     return res.status(400).json({ message: "Invalid data types for memberId or bookIds" });
+        // }
 
-        // Validate bookIds are integers
-        if (bookIds.some(bookId => !Number.isInteger(bookId) || bookId <= 0)) {
-            return res.status(400).json({ message: "Provide valid bookIds." });
-        }
+        // // Validate bookIds are integers
+        // if (bookIds.some(bookId => !Number.isInteger(bookId) || bookId <= 0)) {
+        //     return res.status(400).json({ message: "Provide valid bookIds." });
+        // }
 
         // Validate member exists
         const isMemberValid = await validateMember(memberId);
@@ -447,16 +433,16 @@ export const returnBook = async (req, res) => {
 
             console.log(updatedBorrowedBooks);
             if (updatedBorrowedBooks.count === 0) {
-                throw new Error('Error while returning books');
+                throw new Error('Error while returning books 1');
             }
             // Update book table to mark books as total
             const updateBook = await tx.book.updateMany({
-                where: { id: { in: bookIds }, available: false },
+                where: { id: { in: bookIds } },
                 data: { available: true },
             });
             console.log(updateBook);
             if (updateBook.count === 0) {
-                throw new Error('Error while returning books');
+                throw new Error('Error while returning books 2');
             }
         });
 
@@ -599,7 +585,8 @@ export const deleteSameMultipleBook = async (req, res) => {
             where: {
                 bookCode,
                 available: true
-            }
+            },
+
         })
         if (!bookExist.length) {
             return res.status(400).json({ message: "You cannot delete these books as they are assigned to someone." });
@@ -625,31 +612,30 @@ Only SuperAdmin can access this route
 
 export const deleteBookByCount = async (req, res) => {
     try {
-        const { count, bookCode } = req.body;
-        if (!count || count <= 0 || !bookCode || typeof bookCode !== "string") {
-            return res.status(400).json({ message: "Please provide count>0 and valid bookCode" });
-        }
-        const availableBooks = await prisma.book.findMany({
+        const { stock, bookCode } = req.body;
+
+        const booksToDelete = await prisma.book.findMany({
             where: {
                 bookCode,
                 available: true
-            }
+            },
+            select: {
+                id: true
+            },
+            take: stock
         })
-        if (count > availableBooks.length) {
-            return res.status(400).json({ message: `You cannot delete more than ${availableBooks.length} as other books are borrowed by the members` });
+        if (stock > booksToDelete.length) {
+            return res.status(400).json({ message: `There are only ${booksToDelete.length} books available in the library` });
         }
 
-        await Promise.all(
-            Array.from({ length: count }).map(async () => {
-                return prisma.book.delete({
-                    where: {
-                        bookCode,
-                        available: true
-                    }
-                });
-            })
+        await prisma.$transaction(
+            booksToDelete.map(book =>
+                prisma.book.delete({
+                    where: { id: book.id }
+                })
+            )
         );
-        return res.status(200).json({ message: `${count} Books Deleted Successfully` });
+        return res.status(200).json({ message: `${stock} Books Deleted Successfully` });
 
     } catch (error) {
         console.log(error);
@@ -666,7 +652,7 @@ export const getDashBoardInfo = async (req, res) => {
     try {
 
         // get DB constraints
-        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] =  await getDBConstraints(req,res);
+        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints(req, res);
 
         // Get all books count by category
         const totalBooksByCategory = await prisma.book.groupBy({
@@ -803,10 +789,7 @@ export const editBookUpdated = async (req, res) => {
 
 export const addStock = async (req, res) => {
     try {
-        const { bookCode, stock } = req;
-        if (!bookCode || typeof bookCode !== "string" || !stock || !Number.isInteger(stock) || stock <= 0) {
-            return res.status(400).json({ message: "Please provide a valid bookCode and additional stock value" })
-        }
+        const { bookCode, stock } = req.body;
 
         const bookData = await prisma.book.findFirst({
             where: {
@@ -826,7 +809,7 @@ export const addStock = async (req, res) => {
             pages: bookData.pages,
             category: bookData.category
         }))
-    
+
         await prisma.book.createMany({ data: addedData })
         return res.status(200).json({ message: `${stock} stock added successfully` });
 

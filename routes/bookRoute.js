@@ -61,7 +61,7 @@ router.route('/add').post(isCookieAuthorized, admin_superAdmin_both, validateSch
  * @description Edit existing book details
  * @access Admin and SuperAdmin
  */
-router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(editBookSchema), editBook);
+router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(editBookSchema), editBookUpdated);
 
 /**
  * @route POST /borrow

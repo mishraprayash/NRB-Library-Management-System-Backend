@@ -4,7 +4,8 @@
  */
 
 import jwt from "jsonwebtoken";
-import JsonWebTokenError from "jsonwebtoken/lib/JsonWebTokenError.js";
+import pkg from 'jsonwebtoken';
+const { JsonWebTokenError } = pkg;
 
 // Helper function to send authentication errors
 const sendAuthError = (res, status, message, details = null) => {
@@ -13,19 +14,19 @@ const sendAuthError = (res, status, message, details = null) => {
 
 // Get token from cookies
 const getTokenFromCookie = (req) => {
-  return req.cookies?.token || null;
+  return { accessToken: req.cookies?.token || null };
 };
 
 // Verify JWT token and attach user to request
 const verifyToken = async (req, res, next) => {
   try {
-    const token = getTokenFromCookie(req);
-    
-    if (!token) {
+    const { accessToken } = getTokenFromCookie(req);
+
+    if (!accessToken) {
       return sendAuthError(res, 401, "Authentication required", "No token provided");
     }
-    
-    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+
+    const decodedToken = jwt.verify(accessToken, process.env.JWT_SECRET);
     req.user = decodedToken;
     next();
   } catch (error) {

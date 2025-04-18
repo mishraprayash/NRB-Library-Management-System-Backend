@@ -22,6 +22,18 @@ export const userRegisterSchema = z.object({
     password: password,
     phoneNo: phoneNo
 })
+export const userEditSchema = z.object({
+    name: stringNonEmpty,
+    username: stringNonEmpty,
+    email: email,
+    password: z.string()
+    .transform(val => val === "" ? undefined : val)
+    .optional()
+    .refine(val => val === undefined || val.length >= 5, {
+      message: "Password must be at least 5 characters",
+    }),
+    phoneNo: phoneNo
+})
 
 // ---------- BOOK OPERATIONS ----------
 export const addBookSchema = z.object({
@@ -53,7 +65,7 @@ export const deleteBookSchema = z.object({
 
 export const deleteBookByCountSchema = z.object({
     bookCode: stringNonEmpty,
-    count: int.positive()
+    stock: int.positive()
 })
 
 export const returnBookSchema = z.object({

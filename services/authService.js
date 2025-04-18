@@ -55,7 +55,7 @@ export const generateHashedPassword = async (password) => {
  * @param {Object} user - User object containing id, username, email, and role
  * @returns {string} JWT token
  */
-export const generateJwtToken = (user) => {
+export const generateAccessToken = (user) => {
     try {
         const payload = {
             id: user.id,
@@ -71,6 +71,23 @@ export const generateJwtToken = (user) => {
         throw error;
     }
 };
+
+export const generateRefreshToken = (user)=>{
+    try {
+        const payload = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role
+        };
+        return jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {
+            expiresIn: process.env.REFRESH_TOKEN_LIFETIME || '90d' // fallback to 7 days
+        });
+    } catch (error) {
+        console.error('Error generating refresh token:', error);
+        throw error;
+    }
+}
 
 /**
  * Create a new admin or superadmin user
