@@ -95,6 +95,29 @@ export const verificationEmailQueue = new Queue('verification-email-queue', {
 });
 
 
+export const resetPasswordEmailQueue = new Queue('reset-password-email-queue', {
+    connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT || '6379'),
+        // tls: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+        maxRetriesPerRequest: 10,
+        enableReadyCheck: true,
+        connectTimeout: 10000
+    },
+    defaultJobOptions: {
+        attempts: 3,
+        backoff: {
+            type: 'exponential',
+            delay: 10000 // 10 seconds
+        },
+        removeOnComplete: {
+            age: 24 * 3600, // Keep for 24 hours
+            count: 100
+        },
+        removeOnFail: false
+    }
+});
+
 
 
 // Graceful shutdown

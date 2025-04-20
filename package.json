@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "prisma generate && nodemon app.js",
     "dev:worker": "nodemon worker.js",
+    "seed":"node prisma/seed.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:worker\"",
     "start": "node start.js",
     "build": "prisma generate",

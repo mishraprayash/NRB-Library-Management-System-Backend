@@ -25,7 +25,8 @@ export function generateEmailTemplate(eventType, data) {
             'book-due-reminder': '📚 Library Book Due Reminder',
             'password-reset': '🔑 Password Reset Request',
             'user-register': '🎉 Welcome to NRB Library',
-            'send-verification-email': '✅ Verify your Email'
+            'send-verification-email': '✅ Verify your Email',
+            'send-password-reset-link': 'Reset your password'
         }
     };
 
@@ -57,6 +58,8 @@ function generateHtmlTemplate(eventType, data, lang = 'en') {
             return generateRegistration(data, lang);
         case 'send-verification-email':
             return generateVerificationEmail(data, lang);
+        case 'send-password-reset-link':
+            return generateResetPasswordEmail(data, lang);
         default:
             throw new Error(`Unsupported email template type: ${eventType}`);
     }
@@ -118,11 +121,12 @@ function generateDueReminder(data, lang = 'en') {
  * @returns {string} HTML template
  */
 function generatePasswordReset(data, lang = 'en') {
-    const { username, resetLink } = data;
-    if (!resetLink) throw new Error('Missing resetLink for password reset template');
+    const { username, resetPasswordToken } = data;
+    if (!username || !resetPasswordToken) throw new Error('Missing resetLink for password reset template');
 
-    const safeUsername = username ? sanitizeInput(username) : '';
-    const safeResetLink = sanitizeInput(resetLink);
+    const passwordResetLink = `${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`;
+
+    const safeUsername = username ? sanitizeInput(username) : ''
 
     const translations = {
         en: {
@@ -130,7 +134,7 @@ function generatePasswordReset(data, lang = 'en') {
             greeting: safeUsername ? `Hello ${safeUsername},` : 'Hello,',
             instructions: 'Click the button below to reset your password:',
             buttonText: 'Reset Password',
-            expiryNote: 'This link expires in 1 hour.',
+            expiryNote: 'This link expires in 5 minutes.',
             footer: 'If you didn\'t request this, please ignore this email.'
         }
     };
@@ -151,11 +155,11 @@ function generatePasswordReset(data, lang = 'en') {
             <p>${t.greeting}</p>
             <p>${t.instructions}</p>
             <p style="text-align: center; margin: 30px 0;">
-                <a href="${safeResetLink}" class="button" role="button">${t.buttonText}</a>
+                <a href="${passwordResetLink}" class="button" role="button">${t.buttonText}</a>
             </p>
             <p><em>${t.expiryNote}</em></p>
             <p>If the button doesn't work, copy and paste this URL into your browser:</p>
-            <p style="word-break: break-all; font-size: 14px;"><a href="${safeResetLink}">${safeResetLink}</a></p>
+            <p style="word-break: break-all; font-size: 14px;"><a href="${passwordResetLink}">${passwordResetLink}</a></p>
         </div>
         <div class="footer">${t.footer}</div>
     </div>
@@ -223,8 +227,8 @@ function generateRegistration(data, lang = 'en') {
 }
 
 function generateVerificationEmail(data, lang = 'en') {
-    const { email, username, verificationToken, role } = data;
-    if (!email || !username) throw new Error('Missing credentials for sending email');
+    const { username, verificationToken, role } = data;
+    if (!username) throw new Error('Missing credentials for sending email');
 
     const verificationLink = `${process.env.API_BASE_URI}/common/verifyemail?token=${verificationToken}`
 
@@ -265,3 +269,4 @@ function generateVerificationEmail(data, lang = 'en') {
 </html>`;
 
 }
+

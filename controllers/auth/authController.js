@@ -46,7 +46,8 @@ export const login = async (req, res) => {
     return sendResponse(res, 200, "Login successful", {
       role: user.role,
       token: accessToken,
-      username: user.username
+      username: user.username,
+      isEmailVerified:user.isEmailVerified
     });
   }
   catch (error) {

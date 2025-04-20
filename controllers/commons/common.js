@@ -3,13 +3,14 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
 import { deleteCookie } from "../../lib/helpers.js"
 
-import { sendError, sendResponse } from "../../lib/responseHelper.js"
+import { sendEmailVerificationError, sendEmailVerificationResponse, sendError, sendResponse } from "../../lib/responseHelper.js"
 
 import { v4 as uuidv4 } from "uuid"
 
 import { version as uuidVersion, validate as uuidValidate } from 'uuid';
 
-import { sendVerificationEmail } from "../../services/emailService/emailWorker.js";
+import { sendPasswordResetNotification, sendVerificationEmail } from "../../services/emailService/emailSenders.js";
+import { createHash } from "crypto";
 
 
 /*
@@ -237,7 +238,7 @@ export const updateMyProfileDetails = async (req, res) => {
 /**
 This route is for changing the password for the user which requires user for them to know their old password.
 */
-export const resetPassword = async (req, res) => {
+export const changePassword = async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
         if (!oldPassword || !newPassword || typeof oldPassword !== "string" || typeof newPassword !== "string") {
@@ -347,23 +348,26 @@ export const logout = async (req, res) => {
 
 
 /**
- * Verify email for a user
+ * Route for verifying the email of any user
  */
 
 export const verifyEmail = async (req, res) => {
     try {
         const token = req.query.token;
         if (!token) {
-            return sendResponse(res, 400, "Token is required");
+            return sendEmailVerificationError(res, 400, "Token is required");
         }
+        // console.log('veify', token);
         const isTokenValid = uuidValidate(token) && uuidVersion(token) === 4;
 
         if (!isTokenValid) {
-            return sendResponse(res, 400, "Invalid Verification Token")
+            return sendEmailVerificationError(res, 400, "Invalid Verification Token")
         }
+        const hashedToken = createHash('sha256').update(token).digest('hex');
+
         const member = await prisma.member.findFirst({
             where: {
-                emailVerificationToken: token,
+                emailVerificationToken: hashedToken,
                 isEmailVerified: false,
                 emailVerificationTokenExpiry: {
                     gte: new Date()
@@ -371,7 +375,7 @@ export const verifyEmail = async (req, res) => {
             }
         })
         if (!member) {
-            return sendResponse(res, 400, "Invalid Verification Token or Token Expired");
+            return sendEmailVerificationError(res, 400, "Invalid Verification Token or Token Expired");
         }
 
         // Mark email as verified and remove the token
@@ -383,7 +387,8 @@ export const verifyEmail = async (req, res) => {
                 emailVerificationTokenExpiry: null,
             },
         });
-        return sendResponse(res, 200, "Email Verified Successfully");
+
+        return sendEmailVerificationResponse(res, 200, "Email Verified Successfully");
 
     } catch (error) {
         throw error;
@@ -392,58 +397,169 @@ export const verifyEmail = async (req, res) => {
 
 
 /**
- * Send a verififaction email to a user
+ * Route that sends a verififaction link to an email of a user
  * 
  */
 
 export const sendVerifyEmail = async (req, res) => {
     try {
-
         const user = await prisma.member.findUnique({
             where: {
                 id: req.user.id
             }
         })
         if (!user) {
-            sendResponse(res, 400, 'Invalid User');
+            sendError(res, 400, 'Invalid User');
         }
         if (user.isEmailVerified) {
-            return sendResponse(res, 400, "Email is already verified");
+            return sendError(res, 400, "Email is already verified");
         }
 
-        const updatedUser = await prisma.member.update({
+        const emailVerificationToken = uuidv4();
+        const hashedEmailVerificationToken = createHash('sha256').update(emailVerificationToken).digest('hex');
+
+        await prisma.member.update({
             where: {
                 id: req.user.id
             },
             data: {
-                emailVerificationToken: uuidv4(),
-                emailVerificationTokenExpiry: new Date(Date.now() + 10 * 60 * 1000)
+                emailVerificationToken: hashedEmailVerificationToken,
+                emailVerificationTokenExpiry: new Date(Date.now() + 1 * 60 * 1000)
             }
         })
+        try {
+            await sendVerificationEmail(user.email, user.username, user.role, emailVerificationToken)
+            return sendResponse(res, 200, "Verification Link Sent Successfully");
 
-        sendVerificationEmail(user.email, user.username, user.role, updatedUser.emailVerificationToken)
-
-        sendResponse(res, 200, "Verification Link Sent Successfully");
+        } catch (emailError) {
+            console.error('Failed to send verification email', emailError);
+            return sendError(res, 500, "Failed to send email. Please try again");
+        }
 
     } catch (error) {
         throw error
     }
 }
 
-// export const sendResetPasswordLink = async (req, res) => {
-//     try {
-//         const { email } = req.body;
-//         const userExist = await prisma.member.findFirst({
-//             where: {
-//                 email
-//             }
-//         })
-//         if(!userExist){
-//             sendError(res,400,"User with email doesnot exist");
-//         }
-        
-    
-//     } catch (error) {
 
-//     }
-// }
+export const sendForgotPasswordLink = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const userExist = await prisma.member.findFirst({
+            where: {
+                email
+            }
+        })
+        if (!userExist) {
+            return sendError(res, 400, "User with email doesnot exist");
+        }
+
+        const resetPasswordToken = uuidv4();
+
+        // hashing so that anyone with read access to a DB cannot exploit the resetToken.
+        const hashedResetPasswordToken = createHash('sha256').update(resetPasswordToken).digest('hex');
+
+        await prisma.member.update({
+            where: {
+                email
+            },
+            data: {
+                resetPasswordToken: hashedResetPasswordToken,
+                resetPasswordTokenExpiry: new Date(Date.now() + 5 * 60 * 1000) // expires after 5 min
+            }
+        })
+
+        try {
+            await sendPasswordResetNotification(email, userExist.username, resetPasswordToken);
+            return res.redirect(`${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`)
+
+            // return sendResponse(res, 200, "Password Reset Link Sent Successfully")
+        } catch (emailError) {
+            console.error("Failed to send password reset link");
+            return sendError(res, 500, "Failed to Send Password Reset Link");
+        }
+
+    } catch (error) {
+        throw error;
+    }
+}
+
+
+// POST {newPassword, confirmPassword}
+// {BASE_URI}/changepassword?token=somevalue
+
+export const resetPassword = async (req, res) => {
+    try {
+        const { newPassword, confirmPassword } = req.body;
+        const resetPasswordToken = req.query.token;
+
+        if (!resetPasswordToken) {
+            return sendError(res, 400, "Token not found");
+        }
+
+        const isTokenValid = uuidValidate(resetPasswordToken) && uuidVersion(resetPasswordToken) === 4;
+
+        if (!isTokenValid) {
+            return sendError(res, 400, "Invalid Token Format")
+        }
+
+        if (newPassword !== confirmPassword) {
+            return sendError(res, 400, "Password values doesnot match");
+        }
+        const hashedResetPasswordToken = createHash('sha256').update(resetPasswordToken).digest('hex');
+
+        console.log('Change Password', hashedResetPasswordToken);
+
+        const user = await prisma.member.findFirst({
+            where: {
+                resetPasswordToken: hashedResetPasswordToken,
+                resetPasswordTokenExpiry: {
+                    gte: new Date(Date.now())
+                }
+            }
+        })
+
+        if (!user) {
+            return sendError(res, 400, "The token doesnot exist");
+        }
+        const newHashedPassword = await bcrypt.hash(newPassword, 10);
+
+        try {
+            await prisma.member.update({
+                where: {
+                    id: user.id
+                },
+                data: {
+                    password: newHashedPassword,
+                    resetPasswordToken: null,
+                    resetPasswordTokenExpiry: null
+                }
+            })
+            return sendResponse(res, 200, "Password Reset Successfully");
+        } catch (error) {
+            return sendError(res, 500, "Error while reseting password");
+        }
+
+    } catch (error) {
+        throw error;
+    }
+
+}
+
+
+export const checkIsEmailVerified = async (req, res) => {
+    try {
+        const user = await prisma.member.findUnique({
+            where: {
+                id: req.user.id
+            }
+        })
+        if (!user) {
+            sendError(res, 400, "User doesnot exist");
+        }
+        return sendResponse(res, 200, "OK", { isEmailVerified: user.isEmailVerified })
+
+    } catch (error) {
+        throw error;
+    }
+}

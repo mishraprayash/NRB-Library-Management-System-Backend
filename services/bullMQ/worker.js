@@ -1,13 +1,13 @@
 import { Worker } from "bullmq";
 import { sendEmail } from "../emailService/emailConfig.js";
-import { handleScheduledBookReminders } from "../emailService/emailWorker.js";
+import { handleScheduledBookReminders } from "../emailService/emailSenders.js";
 
 
 
 async function welcomeEmailWorker() {
     const emailWorker = new Worker('email-queue',
         async (job) => {
-            console.log(`Processing email job id: ${job.id}`);
+            console.log(`Processing welcome email job id: ${job.id}`);
             const { to, subject, message } = job.data;
 
             try {
@@ -146,7 +146,7 @@ async function reminderEmailWorker() {
 async function verificationEmailWorker() {
     const verificationEmailWorker = new Worker('verification-email-queue',
         async (job) => {
-            console.log(`Processing reminder job: ${job.id}`);
+            console.log(`Processing verification email job: ${job.id}`);
 
             const {to, subject, message} = job.data;
 
@@ -172,7 +172,7 @@ async function verificationEmailWorker() {
 
         // Event handlers with better logging
         verificationEmailWorker.on('completed', (job, result) => {
-            console.log(`✅ Email job ${job.id} completed successfully:`, result);
+            console.log(`✅ Verification Email job ${job.id} completed successfully:`, result);
         });
     
         verificationEmailWorker.on('failed', (job, error) => {
@@ -208,6 +208,10 @@ async function verificationEmailWorker() {
         return verificationEmailWorker;
 }
 
+
+// export const resetPasswordLinkWorker(){
+
+// }
 
 export function runEmailWorkers() {
 

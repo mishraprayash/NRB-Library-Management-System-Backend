@@ -9,7 +9,7 @@
 import express from "express";
 import { config } from "dotenv";
 import { runEmailWorkers } from "./services/bullMQ/worker.js";
-import { runBackgroundReapeatableReminderQueue } from "./services/emailService/emailWorker.js";
+import { runBackgroundReapeatableReminderQueue } from "./services/emailService/emailSenders.js";
 import winston from 'winston';
 
 // Load environment variables

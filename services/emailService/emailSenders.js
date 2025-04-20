@@ -7,7 +7,7 @@
 import prisma from "../../lib/prisma.js";
 import { sendEmail } from "./emailConfig.js";
 import { generateEmailTemplate } from "./emailTemplate.js";
-import { reminderQueue, verificationEmailQueue, welcomeQueue } from "../bullMQ/Queue.js";
+import { reminderQueue, verificationEmailQueue, welcomeQueue } from "../bullMQ/queue.js";
 
 // Configuration constants
 const REMINDER_WINDOW = 2 * 24 * 60 * 60 * 1000; // 2 days 
@@ -143,11 +143,10 @@ export async function handleScheduledBookReminders() {
  * @param {string} username - User's display name
  * @param {string} resetLink - Password reset URL
  */
-export async function sendPasswordResetNotification(email, username, resetLink) {
+export async function sendPasswordResetNotification(email, username, resetPasswordToken) {
   try {
-    const template = generateEmailTemplate(events.userEvents['password-reset'], { username, resetLink });
-    await sendEmail(email, template.subject, template.html_ne);
-    console.log(`✅ Password reset sent to ${email}`);
+    const template = generateEmailTemplate(events.userEvents['password-reset'], { email, username, resetPasswordToken });
+    await sendEmail(email, template.subject, template.html);
   } catch (error) {
     console.error(`❌ Failed to send password reset to ${email}:`, error.message);
     throw error;

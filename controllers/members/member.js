@@ -2,7 +2,7 @@
 import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
 import { getDBConstraints, validateMember } from "../../lib/helpers.js"
-import { sendWelcomeNotification } from '../../services/emailService/emailWorker.js'
+import { sendVerificationEmail, sendWelcomeNotification } from '../../services/emailService/emailSenders.js'
 
 
 /*
@@ -78,6 +78,8 @@ export const addMember = async (req, res) => {
         }
 
         await sendWelcomeNotification(email, username, password, addedMember.role);
+
+
         return res.status(200).json({
             message: "Member added successfully", member: {
                 id: addedMember.id,

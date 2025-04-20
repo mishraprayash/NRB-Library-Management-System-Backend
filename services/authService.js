@@ -1,7 +1,7 @@
 import prisma from "../lib/prisma.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { sendWelcomeNotification } from "../services/emailService/emailWorker.js";
+import { sendWelcomeNotification } from "../services/emailService/emailSenders.js";
 
 const SALT_ROUNDS = 10;
 

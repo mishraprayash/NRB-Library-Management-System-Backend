@@ -7,7 +7,10 @@ import {
     getUserInfo,
     logout,
     verifyEmail,
-    sendVerifyEmail
+    sendVerifyEmail,
+    changePassword,
+    sendForgotPasswordLink,
+    checkIsEmailVerified
 } from "../controllers/commons/common.js"
 
 import { isCookieAuthorized } from "../middleware/authMiddleware.js";
@@ -40,7 +43,7 @@ router.route('/updatedetails').post(isCookieAuthorized, validateSchema(updatePro
  * @description Reset user password
  * @access All authenticated users
  */
-router.route('/resetpassword').post(isCookieAuthorized, validateSchema(resetPasswordSchema), resetPassword);
+router.route('/changepassword').post(isCookieAuthorized, validateSchema(resetPasswordSchema), changePassword);
 
 /**
  * @route GET /logout
@@ -64,5 +67,12 @@ router.route('/getme').get(isCookieAuthorized, getUserInfo);
 router.route('/verifyemail').get(verifyEmail);
 
 router.route('/sendverificationemail').get(isCookieAuthorized, sendVerifyEmail)
+
+router.route('/sendpasswordresetlink').post(sendForgotPasswordLink)
+
+router.route('/resetpassword').post(resetPassword)
+
+router.route('/checkemail').get(isCookieAuthorized, checkIsEmailVerified);
+
 
 export default router
