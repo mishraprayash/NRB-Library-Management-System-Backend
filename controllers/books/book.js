@@ -3,8 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 
 import { validateMember, getDBConstraints, groupBooks } from "../../lib/helpers.js"
-
 import { sendResponse, sendError } from '../../lib/responseHelper.js';
+
 
 /**
 If we need to add a new book to the library, we can use this route.
@@ -165,6 +165,7 @@ export const borrowBook = async (req, res) => {
             return res.status(400).json({ message: "All bookIds must be integers." });
         }
 
+        const removedDuplicateIds = Array.from(new Set(bookIds));
         // Check if member exists
         const memberExists = await validateMember(memberId);
         if (!memberExists) {
@@ -208,7 +209,7 @@ export const borrowBook = async (req, res) => {
         // Fetch books the member is trying to borrow
         const books = await prisma.book.findMany({
             where: {
-                id: { in: bookIds }
+                id: { in: removedDuplicateIds }
             },
             select: {
                 id: true,
@@ -229,35 +230,6 @@ export const borrowBook = async (req, res) => {
             });
         }
 
-        // Collect bookCodes to check for recent returns
-        const bookCodesToCheck = books.map(book => book.bookCode);
-
-        // Check if any of these bookCodes were recently returned by the member
-        const recentlyReturnedBooks = await prisma.borrowedBook.findMany({
-            where: {
-                memberId,
-                returned: true,
-                returnedDate: {
-                    gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                },
-                book: {
-                    bookCode: {
-                        in: bookCodesToCheck
-                    }
-                }
-            },
-            select: {
-                book: {
-                    select: {
-                        bookCode: true
-                    }
-                }
-            }
-        });
-
-        const restrictedBookCodes = new Set(
-            recentlyReturnedBooks.map(entry => entry.book.bookCode)
-        );
 
         // Categorize books into allowed and restricted
         const allowedBooksIds = [];
@@ -270,12 +242,6 @@ export const borrowBook = async (req, res) => {
                     message: "Book is already borrowed",
                     bookName: [book.name]
                 });
-            } else if (restrictedBookCodes.has(book.bookCode)) {
-                restrictedBooks.push({
-                    bookId: book.id,
-                    message: "A book with the same code was returned within the last week.",
-                    bookName: [book.name]
-                });
             } else {
                 allowedBooksIds.push({
                     bookId: book.id,
@@ -286,7 +252,7 @@ export const borrowBook = async (req, res) => {
 
         if (allowedBooksIds.length === 0) {
             return res.status(400).json({
-                message: "You cannot borrow these books due to existing borrows or recent returns.",
+                message: "You have already borrowed these books. Please return before borrowing again.",
                 restrictedBooks,
                 invalidBooksIds
             });
@@ -364,7 +330,7 @@ export const getAllBorrowedBooks = async (req, res) => {
             },
         })
 
-       
+
         return res.status(200).json({ message: "Borrowed Books Found", borrowedBooks: allBorrowedBooks })
     } catch (error) {
         console.log(error);
