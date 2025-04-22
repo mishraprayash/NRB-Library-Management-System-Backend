@@ -1,9 +1,19 @@
 import { Router } from "express";
 
-import { addBook, editBook, borrowBook, returnBook, renewBook, getAllBorrowedBooks, deleteBookByCount, deleteSameMultipleBook, getDashBoardInfo, editBookUpdated, addStock, getRecentBooks, } from "../controllers/books/book.js";
+import { 
+     addBook,
+     borrowBook, 
+     returnBook, 
+     renewBook, 
+     getAllBorrowedBooks, 
+     deleteBookByCount, 
+     deleteSameMultipleBook, 
+     getDashBoardInfo, 
+     editBookUpdated, 
+     addStock, 
+     getRecentBooks
+} from "../controllers/books/book.js";
 
-import { isCookieAuthorized, admin_superAdmin_both, super_admin_only } from "../middleware/authMiddleware.js";
-import { validateSchema } from "../middleware/validateSchema.js";
 import {
     addBookSchema,
     editBookSchema,
@@ -14,7 +24,9 @@ import {
     searchQuerySchema
 } from "../validation/schema.js";
 
-import { filteredBooks, getAllBooks, getAvailableBooks, getBooksWithDuplication, getBorrowedBooksForMember } from "../controllers/commons/common.js";
+import { filteredBooks, getAvailableBooks, getBooksWithDuplication, getBorrowedBooksForMember } from "../controllers/commons/common.js";
+import { isCookieAuthorized, admin_superAdmin_both, super_admin_only } from "../middleware/authMiddleware.js";
+import { validateSchema } from "../middleware/validateSchema.js";
 
 const router = Router();
 
@@ -22,13 +34,6 @@ const router = Router();
  * @description Book management routes
  * @basePath /api/v1/book
  */
-
-/**
- * @route GET /getall
- * @description Get all books in the library
- * @access All authenticated users
- */
-router.route('/getall').get(isCookieAuthorized, validateSchema(searchQuerySchema), filteredBooks);
 
 /**
  * @route GET /getavailable
@@ -52,32 +57,19 @@ router.route('/getwithduplicates').get(isCookieAuthorized, getBooksWithDuplicati
 router.route('/getformember').post(isCookieAuthorized, getBorrowedBooksForMember);
 
 /**
- * @route POST /add
- * @description Add a new book to the library
- * @access Admin and SuperAdmin
- */
-router.route('/add').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(addBookSchema), addBook);
-
-/**
- * @route POST /edit
- * @description Edit existing book details
- * @access Admin and SuperAdmin
- */
-router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(editBookSchema), editBookUpdated);
-
-/**
  * @route POST /borrow
  * @description Borrow a book
  * @access Admin and SuperAdmin
  */
 router.route('/borrow').post(isCookieAuthorized, admin_superAdmin_both, borrowBook);
 
+
 /**
- * @route POST /return
- * @description Return a borrowed book
+ * @route GET /dashboard
+ * @description Get dashboard information for admin/superadmin
  * @access Admin and SuperAdmin
  */
-router.route('/return').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(returnBookSchema), returnBook);
+router.route('/dashboard').get(isCookieAuthorized, admin_superAdmin_both, getDashBoardInfo);
 
 /**
  * @route POST /renew
@@ -93,19 +85,41 @@ router.route('/renew').post(isCookieAuthorized, admin_superAdmin_both, renewBook
  */
 router.route('/getallborrowed').get(isCookieAuthorized, admin_superAdmin_both, getAllBorrowedBooks);
 
+
+/**
+ * @route GET /getall
+ * @description Get all books in the library
+ * @access All authenticated users
+ */
+router.route('/getall').get(isCookieAuthorized, validateSchema(searchQuerySchema), filteredBooks);
+
+/**
+ * @route POST /add
+ * @description Add a new book to the library
+ * @access Admin and SuperAdmin
+ */
+router.route('/add').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(addBookSchema), addBook);
+
+/**
+ * @route POST /edit
+ * @description Edit existing book details
+ * @access Admin and SuperAdmin
+ */
+router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(editBookSchema), editBookUpdated);
+
+/**
+ * @route POST /return
+ * @description Return a borrowed book
+ * @access Admin and SuperAdmin
+ */
+router.route('/return').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(returnBookSchema), returnBook);
+
 /**
  * @route POST /addstock
  * @description Add stock to existing books
  * @access Admin and SuperAdmin
  */
 router.route('/addstock').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(addStockSchema), addStock);
-
-/**
- * @route GET /dashboard
- * @description Get dashboard information for admin/superadmin
- * @access Admin and SuperAdmin
- */
-router.route('/dashboard').get(isCookieAuthorized, admin_superAdmin_both, getDashBoardInfo);
 
 /**
  * @route POST /deleteall

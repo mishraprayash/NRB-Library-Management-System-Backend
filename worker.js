@@ -5,12 +5,12 @@
  * 
  * Handles background jobs and email processing
  */
-
 import express from "express";
-import { config } from "dotenv";
-import { runEmailWorkers } from "./services/bullMQ/worker.js";
-import { runBackgroundReapeatableReminderQueue } from "./services/emailService/emailSenders.js";
 import winston from 'winston';
+
+import { runBackgroundReapeatableReminderQueue } from "./services/emailService/emailSenders.js";
+import { runEmailWorkers } from "./services/bullMQ/worker.js";
+import { config } from "dotenv";
 
 // Load environment variables
 config();

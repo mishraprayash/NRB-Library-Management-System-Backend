@@ -364,25 +364,7 @@ export const getAllBorrowedBooks = async (req, res) => {
             },
         })
 
-        const booksOnly = allBorrowedBooks.map((borrowedBook) => borrowedBook.book);
-        const groupedBooks = groupBooks(booksOnly);
-        const groupedMap = new Map();
-
-        groupedBooks.forEach(groupedBook => {
-            groupedMap.set(groupedBook.bookCode, {
-                totalCount: groupedBook.totalCount,
-                availableCount: groupedBook.availableCount
-            })
-        })
-
-        allBorrowedBooks.forEach(borrowedBook => {
-            const counts = groupedMap.get(borrowedBook.book.bookCode);
-            if (counts) {
-                borrowedBook.book.totalCount = counts.totalCount;
-                borrowedBook.book.availableCount = counts.availableCount;
-            }
-        })
-
+       
         return res.status(200).json({ message: "Borrowed Books Found", borrowedBooks: allBorrowedBooks })
     } catch (error) {
         console.log(error);

@@ -2,13 +2,11 @@ import { Router } from "express";
 
 export const router = Router();
 
-import { getDashboardDetails, getPastBorrowedBooks } from "../controllers/members/member.js"
-
 import { isCookieAuthorized, super_admin_only, admin_superAdmin_both, member_only } from "../middleware/authMiddleware.js";
-import { validateSchema } from "../middleware/validateSchema.js";
-import { userRegisterSchema, getBorrowedBooksSchema, userEditSchema } from "../validation/schema.js";
-
 import { getMembers, addMember, editMemberDetails, deleteMember } from "../controllers/members/member.js";
+import { userRegisterSchema, getBorrowedBooksSchema, userEditSchema } from "../validation/schema.js";
+import { getDashboardDetails, getPastBorrowedBooks } from "../controllers/members/member.js"
+import { validateSchema } from "../middleware/validateSchema.js";
 
 /**
  * @description Member management routes
@@ -21,20 +19,6 @@ import { getMembers, addMember, editMemberDetails, deleteMember } from "../contr
  * @access Admin and SuperAdmin
  */
 router.route('/getall').get(isCookieAuthorized, admin_superAdmin_both, getMembers);
-
-/**
- * @route POST /add
- * @description Add a new member
- * @access Admin and SuperAdmin
- */
-router.route('/add').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(userRegisterSchema), addMember);
-
-/**
- * @route POST /edit
- * @description Edit member details
- * @access Admin and SuperAdmin
- */
-router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(userEditSchema), editMemberDetails);
 
 /**
  * @route GET /dashboard
@@ -56,5 +40,20 @@ router.route('/history').get(isCookieAuthorized, getPastBorrowedBooks);
  * @access SuperAdmin only
  */
 router.route('/delete').post(isCookieAuthorized, super_admin_only, deleteMember);
+
+/**
+ * @route POST /add
+ * @description Add a new member
+ * @access Admin and SuperAdmin
+ */
+router.route('/add').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(userRegisterSchema), addMember);
+
+/**
+ * @route POST /edit
+ * @description Edit member details
+ * @access Admin and SuperAdmin
+ */
+router.route('/edit').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(userEditSchema), editMemberDetails);
+
 
 export default router;

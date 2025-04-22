@@ -10,7 +10,6 @@
 // Core dependencies
 import express from "express";
 import cors from "cors";
-import { config } from "dotenv";
 import cookieParser from "cookie-parser";
 import cluster from "node:cluster";
 import os from "node:os";
@@ -19,6 +18,7 @@ import rateLimit from "express-rate-limit";
 import compression from "compression";  // Add compression
 import timeout from "connect-timeout";  // Add timeout handling
 import { v4 as uuidv4 } from "uuid"
+import { config } from "dotenv";
 
 // Route imports
 import authRoute from "./routes/authRoutes.js";

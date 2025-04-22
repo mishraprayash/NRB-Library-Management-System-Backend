@@ -250,7 +250,6 @@ export const getDashboardDetails = async (req, res) => {
 
         const groupedCurrentlyBorrowedBooks = groupBooks(currentlyBorrowedBooks);
 
-
         return res.status(200).json({
             message: "Details Fetched Successfully",
             countOfTotalBorrowed,

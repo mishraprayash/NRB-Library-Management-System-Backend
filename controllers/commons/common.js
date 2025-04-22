@@ -1,19 +1,16 @@
 import prisma from "../../lib/prisma.js"
-import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
-import { deleteCookie, groupBooks } from "../../lib/helpers.js"
+import bcrypt from "bcryptjs";
+import fuzzy from "fuzzy"
 
 import { sendEmailVerificationError, sendEmailVerificationResponse, sendError, sendResponse } from "../../lib/responseHelper.js"
-
-import { v4 as uuidv4 } from "uuid"
-
-import { version as uuidVersion, validate as uuidValidate } from 'uuid';
-
 import { sendPasswordResetNotification, sendVerificationEmail } from "../../services/emailService/emailSenders.js";
-import { createHash } from "crypto";
+import { version as uuidVersion, validate as uuidValidate } from 'uuid';
+import { deleteCookie, groupBooks } from "../../lib/helpers.js"
 import { searchQuerySchema } from "../../validation/schema.js";
+import { v4 as uuidv4 } from "uuid"
+import { createHash } from "crypto";
 
-import fuzzy from "fuzzy"
 
 /*
 The API routes in this file can be accessed by all the users. So that api endpoint for this route starts with  /api/v1/common
@@ -108,11 +105,9 @@ export const getAvailableBooks = async (req, res) => {
         });
 
 
-        const groupedBooks = groupBooks(allBooks);
-
         return res.status(200).json({
             message: "Available Books Fetched Successfully",
-            books: groupedBooks
+            books: allBooks
         });
 
     } catch (error) {
@@ -350,10 +345,10 @@ export const filteredBooks = async (req, res) => {
         const { a_name, b_name, sort, cat, page, sortBy, limit } = parsed.data;
 
         console.log(a_name, b_name, sort, sortBy, cat, page, limit);
-        
+
         if (a_name && b_name) {
             return res.status(400).json({ error: 'You can only search by either author name or book name, not both.' });
-          }
+        }
 
         const skip = (page - 1) * limit;
 
@@ -370,7 +365,7 @@ export const filteredBooks = async (req, res) => {
         })
 
         let filteredBooks = books;
-       
+
 
         if (b_name) {
             // Fuzzy match on book names
@@ -378,21 +373,21 @@ export const filteredBooks = async (req, res) => {
             const fuzzyBookResults = fuzzy.filter(b_name, bookNames);
             const matchedBooks = new Set(fuzzyBookResults.map(result => result.string));
             console.log(matchedBooks);
-      
+
             filteredBooks = filteredBooks.filter(book => matchedBooks.has(book.name));
-            console.log('Lenght',filteredBooks.length);
-          }
-      
-          if (a_name) {
+            console.log('Lenght', filteredBooks.length);
+        }
+
+        if (a_name) {
             // Fuzzy match on author names (handle array of authors)
             const authorNames = books.map(book => book.authors).flat(); // Flatten the authors array to match against
             const fuzzyAuthorResults = fuzzy.filter(a_name, authorNames);
             const matchedAuthors = new Set(fuzzyAuthorResults.map(result => result.string));
-      
+
             filteredBooks = filteredBooks.filter(book =>
-              book.authors.some(author => matchedAuthors.has(author))
+                book.authors.some(author => matchedAuthors.has(author))
             );
-          }
+        }
 
         // Step 3: Group books by unique bookCode and include additional counts
         const groupedBooks = groupBooks(filteredBooks)
@@ -403,21 +398,19 @@ export const filteredBooks = async (req, res) => {
             message: 'Success',
             groupedBooks,
             pagination: {
-              totalCount,
-              totalPages: Math.ceil(totalCount / limit),
-              currentPage: page,
-              hasNextPage: page < Math.ceil(totalCount / limit),
-              hasPrevPage: page > 1,
+                totalCount,
+                totalPages: Math.ceil(totalCount / limit),
+                currentPage: page,
+                hasNextPage: page < Math.ceil(totalCount / limit),
+                hasPrevPage: page > 1,
             },
-          });
+        });
 
     } catch (error) {
         console.error('Error filtering books:', error);
         res.status(500).json({ error: 'Something went wrong' });
     }
 }
-
-
 
 /**
  * Route for verifying the email of any user
@@ -467,7 +460,6 @@ export const verifyEmail = async (req, res) => {
     }
 }
 
-
 /**
  * Route that sends a verififaction link to an email of a user
  * 
@@ -512,7 +504,6 @@ export const sendVerifyEmail = async (req, res) => {
         throw error
     }
 }
-
 
 export const sendForgotPasswordLink = async (req, res) => {
     try {
