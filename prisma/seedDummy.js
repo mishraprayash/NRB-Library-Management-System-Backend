@@ -15,7 +15,7 @@ async function main() {
     data: {
       MAX_BORROW_LIMIT: 5,
       MAX_RENEWAL_LIMIT: 2,
-      EXPIRYDATE: 14,
+      EXPIRYDATE: 15,
       CONSECUTIVE_BORROW_LIMIT_DAYS: 30,
       CATEGORIES: ['FICTION', 'NON-FICTION', 'SCIENCE', 'HISTORY', 'BIOGRAPHY']
     }
@@ -132,3 +132,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+

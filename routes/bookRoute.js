@@ -1,18 +1,20 @@
 import { Router } from "express";
 
-import { addBook, editBook, borrowBook, returnBook, renewBook, getAllBorrowedBooks, deleteBookByCount, deleteSameMultipleBook, getDashBoardInfo, editBookUpdated, addStock, } from "../controllers/books/book.js";
+import { addBook, editBook, borrowBook, returnBook, renewBook, getAllBorrowedBooks, deleteBookByCount, deleteSameMultipleBook, getDashBoardInfo, editBookUpdated, addStock, getRecentBooks, } from "../controllers/books/book.js";
 
 import { isCookieAuthorized, admin_superAdmin_both, super_admin_only } from "../middleware/authMiddleware.js";
 import { validateSchema } from "../middleware/validateSchema.js";
-import { 
-    addBookSchema, 
-    editBookSchema, 
-    returnBookSchema, 
-    deleteBookSchema, 
-    deleteBookByCountSchema 
+import {
+    addBookSchema,
+    editBookSchema,
+    returnBookSchema,
+    deleteBookSchema,
+    deleteBookByCountSchema,
+    addStockSchema,
+    searchQuerySchema
 } from "../validation/schema.js";
 
-import { getAllBooks, getAvailableBooks, getBooksWithDuplication, getBorrowedBooksForMember } from "../controllers/commons/common.js";
+import { filteredBooks, getAllBooks, getAvailableBooks, getBooksWithDuplication, getBorrowedBooksForMember } from "../controllers/commons/common.js";
 
 const router = Router();
 
@@ -26,7 +28,7 @@ const router = Router();
  * @description Get all books in the library
  * @access All authenticated users
  */
-router.route('/getall').get(isCookieAuthorized, getAllBooks);
+router.route('/getall').get(isCookieAuthorized, validateSchema(searchQuerySchema), filteredBooks);
 
 /**
  * @route GET /getavailable
@@ -96,7 +98,7 @@ router.route('/getallborrowed').get(isCookieAuthorized, admin_superAdmin_both, g
  * @description Add stock to existing books
  * @access Admin and SuperAdmin
  */
-router.route('/addstock').post(isCookieAuthorized, admin_superAdmin_both, addStock);
+router.route('/addstock').post(isCookieAuthorized, admin_superAdmin_both, validateSchema(addStockSchema), addStock);
 
 /**
  * @route GET /dashboard
@@ -119,11 +121,6 @@ router.route('/deleteall').post(isCookieAuthorized, super_admin_only, validateSc
  */
 router.route('/delete').post(isCookieAuthorized, super_admin_only, validateSchema(deleteBookByCountSchema), deleteBookByCount);
 
-/**
- * @route POST /editbooknew
- * @description Edit book details (superadmin only)
- * @access SuperAdmin only
- */
-router.route('/editbooknew').post(isCookieAuthorized, super_admin_only, validateSchema(editBookSchema), editBookUpdated);
+router.route('/recent').get(isCookieAuthorized, getRecentBooks);
 
 export default router

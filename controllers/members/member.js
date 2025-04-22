@@ -1,7 +1,7 @@
 
 import prisma from "../../lib/prisma.js";
 import bcrypt from "bcryptjs";
-import { getDBConstraints, validateMember } from "../../lib/helpers.js"
+import { getDBConstraints, groupBooks, validateMember } from "../../lib/helpers.js"
 import { sendVerificationEmail, sendWelcomeNotification } from '../../services/emailService/emailSenders.js'
 
 
@@ -31,6 +31,7 @@ export const getMembers = async (req, res) => {
 
                     },
                 },
+                isEmailVerified: true
             }
         });
 
@@ -212,7 +213,7 @@ export const getDashboardDetails = async (req, res) => {
         // Fetch all relevant data in a single query
         const borrowedBooks = await prisma.borrowedBook.findMany({
             where: { memberId: req.user.id },
-            select: {
+            include: {
                 id: true,
                 returned: true,
                 expiryDate: true,
@@ -226,9 +227,12 @@ export const getDashboardDetails = async (req, res) => {
                     }
                 }
             },
+            include: {
+                book: {}
+            },
             orderBy: {
                 borrowedDate: 'desc'
-            }
+            },
         });
 
         let countOfTotalBorrowed = borrowedBooks.length;
@@ -244,13 +248,16 @@ export const getDashboardDetails = async (req, res) => {
             }
         });
 
+        const groupedCurrentlyBorrowedBooks = groupBooks(currentlyBorrowedBooks);
+
+
         return res.status(200).json({
             message: "Details Fetched Successfully",
             countOfTotalBorrowed,
             countOfCurrentlyBorrowedBooks: currentlyBorrowedBooks.length,
             countOfExpiredBooks: expiredBooks.length,
             expiredBooks,
-            currentlyBorrowedBooks
+            currentlyBorrowedBooks: groupedCurrentlyBorrowedBooks
         });
 
     } catch (error) {

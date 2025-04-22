@@ -2,7 +2,7 @@ import prisma from '../../lib/prisma.js'
 import { v4 as uuidv4 } from 'uuid';
 
 
-import { validateMember, getDBConstraints } from "../../lib/helpers.js"
+import { validateMember, getDBConstraints, groupBooks } from "../../lib/helpers.js"
 
 import { sendResponse, sendError } from '../../lib/responseHelper.js';
 
@@ -360,15 +360,29 @@ export const getAllBorrowedBooks = async (req, res) => {
                         username: true
                     }
                 },
-                book: {
-                    select: {
-                        name: true,
-                        authors: true
-                    }
-                }
-
+                book: {}
             },
         })
+
+        const booksOnly = allBorrowedBooks.map((borrowedBook) => borrowedBook.book);
+        const groupedBooks = groupBooks(booksOnly);
+        const groupedMap = new Map();
+
+        groupedBooks.forEach(groupedBook => {
+            groupedMap.set(groupedBook.bookCode, {
+                totalCount: groupedBook.totalCount,
+                availableCount: groupedBook.availableCount
+            })
+        })
+
+        allBorrowedBooks.forEach(borrowedBook => {
+            const counts = groupedMap.get(borrowedBook.book.bookCode);
+            if (counts) {
+                borrowedBook.book.totalCount = counts.totalCount;
+                borrowedBook.book.availableCount = counts.availableCount;
+            }
+        })
+
         return res.status(200).json({ message: "Borrowed Books Found", borrowedBooks: allBorrowedBooks })
     } catch (error) {
         console.log(error);
@@ -384,18 +398,6 @@ admin or superadmin can only access this route
 export const returnBook = async (req, res) => {
     try {
         const { memberId, bookIds } = req.body;
-
-        // if (!memberId || !bookIds) {
-        //     return res.status(400).json({ message: "Please provide both memberId and bookIds" });
-        // }
-        // if (!Number.isInteger(memberId) || !Array.isArray(bookIds)) {
-        //     return res.status(400).json({ message: "Invalid data types for memberId or bookIds" });
-        // }
-
-        // // Validate bookIds are integers
-        // if (bookIds.some(bookId => !Number.isInteger(bookId) || bookId <= 0)) {
-        //     return res.status(400).json({ message: "Provide valid bookIds." });
-        // }
 
         // Validate member exists
         const isMemberValid = await validateMember(memberId);
@@ -655,14 +657,27 @@ export const getDashBoardInfo = async (req, res) => {
         const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints(req, res);
 
         // Get all books count by category
-        const totalBooksByCategory = await prisma.book.groupBy({
+        const countBooksByCategory = await prisma.book.groupBy({
             by: ["category"],
             _count: { id: true },
         });
 
+        const totalBooksCount = await prisma.book.count();
+        const totalUniqueBooks = await prisma.book.findMany({
+            where: {},
+            distinct: ['name']
+        })
+        const totalUniqueBooksCount = totalUniqueBooks.length;
+
+        const totalMemberCount = await prisma.member.count({
+            where: {
+                role: 'MEMBER'
+            }
+        })
+
         // Convert total books data to a map for quick lookup
         let totalBooksMap = {};
-        totalBooksByCategory.forEach(({ category, _count }) => {
+        countBooksByCategory.forEach(({ category, _count }) => {
             totalBooksMap[category] = _count.id;
         });
 
@@ -682,7 +697,7 @@ export const getDashBoardInfo = async (req, res) => {
             },
             orderBy: {
                 borrowedDate: 'desc'
-            }
+            },
         });
 
         // Initialize counts
@@ -718,8 +733,11 @@ export const getDashBoardInfo = async (req, res) => {
             countOfTotalBorrowed,
             countOfCurrentlyBorrowedBooks: currentlyBorrowedBooks.length,
             countOfExpiredBooks: expiredBooks.length,
+            totalBooksCount,
+            totalUniqueBooksCount,
             expiredBooks,
             categoryStats,
+            totalMemberCount,
             variables: {
                 MAX_BORROW_LIMIT,
                 MAX_RENEWAL_LIMIT,
@@ -820,3 +838,19 @@ export const addStock = async (req, res) => {
 }
 
 
+export const getRecentBooks = async (req, res) => {
+    try {
+        const recentBooks = await prisma.book.findMany({
+            orderBy: {
+                createdAt: 'desc'
+            },
+            distinct: ['name'],
+            take: 10
+        })
+        return res.status(200).json({ message: 'Borrowed Recent Books', recentBooks })
+
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}

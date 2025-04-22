@@ -27,11 +27,11 @@ export const userEditSchema = z.object({
     username: stringNonEmpty,
     email: email,
     password: z.string()
-    .transform(val => val === "" ? undefined : val)
-    .optional()
-    .refine(val => val === undefined || val.length >= 5, {
-      message: "Password must be at least 5 characters",
-    }),
+        .transform(val => val === "" ? undefined : val)
+        .optional()
+        .refine(val => val === undefined || val.length >= 5, {
+            message: "Password must be at least 5 characters",
+        }),
     phoneNo: phoneNo
 })
 
@@ -93,15 +93,32 @@ export const getBorrowedBooksSchema = z.object({
 export const variablesCreateSchema = z.object({
     MAX_BORROW_LIMIT: int.positive(),
     MAX_RENEWAL_LIMIT: int.positive(),
-    BOOK_EXPIRY_DATE: int.positive(),
-    CONSECUTIVE_BORROW_LIMIT_DAYS: int.positive(),
+    EXPIRYDATE: int.positive(),
     CATEGORIES: z.array(stringNonEmpty)
 })
 
 export const variablesUpdateSchema = z.object({
     MAX_BORROW_LIMIT: int.positive(),
     MAX_RENEWAL_LIMIT: int.positive(),
-    BOOK_EXPIRY_DATE: int.positive(),
-    CONSECUTIVE_BORROW_LIMIT_DAYS: int.positive(),
+    EXPIRYDATE: int.positive(),
     CATEGORIES: z.array(stringNonEmpty)
 })
+
+export const addStockSchema = z.object({
+    bookCode: stringNonEmpty.min(1, "Book code is required"),
+    stock: int.positive()
+})
+
+const ALLOWED_SORT_FIELDS = ['createdAt', 'cost', 'publishedYear'];
+
+export const searchQuerySchema = z.object({
+    a_name: z.string().optional(),
+    b_name: z.string().optional(),
+    sort: z.enum(['asc', 'desc']).optional().default('desc'),
+    sortBy: z.string().optional().default('createdAt').refine((val) => !val || ALLOWED_SORT_FIELDS.includes(val), {
+        message: `sortBy must be one of: ${ALLOWED_SORT_FIELDS.join(', ')}`,
+    }),
+    cat: z.string().optional(),
+    page: z.coerce.number().positive().optional().default(1),
+    limit: z.coerce.number().positive().max(100).optional().default(50),
+});

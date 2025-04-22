@@ -1,7 +1,7 @@
 import prisma from "../../lib/prisma.js"
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken"
-import { deleteCookie } from "../../lib/helpers.js"
+import { deleteCookie, groupBooks } from "../../lib/helpers.js"
 
 import { sendEmailVerificationError, sendEmailVerificationResponse, sendError, sendResponse } from "../../lib/responseHelper.js"
 
@@ -11,7 +11,9 @@ import { version as uuidVersion, validate as uuidValidate } from 'uuid';
 
 import { sendPasswordResetNotification, sendVerificationEmail } from "../../services/emailService/emailSenders.js";
 import { createHash } from "crypto";
+import { searchQuerySchema } from "../../validation/schema.js";
 
+import fuzzy from "fuzzy"
 
 /*
 The API routes in this file can be accessed by all the users. So that api endpoint for this route starts with  /api/v1/common
@@ -105,19 +107,8 @@ export const getAvailableBooks = async (req, res) => {
             }
         });
 
-        // Group books by bookCode so that we can also count the number of same books
-        const bookMap = new Map();
 
-        allBooks.forEach(book => {
-            if (bookMap.has(book.bookCode)) {
-                bookMap.get(book.bookCode).count += 1;
-            } else {
-                bookMap.set(book.bookCode, { ...book, count: 1 });
-            }
-        });
-
-        // extracting the values from the map and converting it into the array
-        const groupedBooks = Array.from(bookMap.values());
+        const groupedBooks = groupBooks(allBooks);
 
         return res.status(200).json({
             message: "Available Books Fetched Successfully",
@@ -298,7 +289,8 @@ export const getProfileDetails = async (req, res) => {
                 username: true,
                 email: true,
                 phoneNo: true,
-                createdAt: true
+                createdAt: true,
+                isEmailVerified: true
             }
         })
 
@@ -345,6 +337,86 @@ export const logout = async (req, res) => {
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
+
+
+export const filteredBooks = async (req, res) => {
+    try {
+
+        const parsed = searchQuerySchema.safeParse(req.query);
+        if (!parsed.success) {
+            return res.status(400).json({ error: parsed.error.flatten() });
+        }
+
+        const { a_name, b_name, sort, cat, page, sortBy, limit } = parsed.data;
+
+        console.log(a_name, b_name, sort, sortBy, cat, page, limit);
+        
+        if (a_name && b_name) {
+            return res.status(400).json({ error: 'You can only search by either author name or book name, not both.' });
+          }
+
+        const skip = (page - 1) * limit;
+
+        // Step 1: Apply filters on the DB level first (category, sort,etc.)
+        const where = {};
+        if (cat) {
+            where.category = { equals: cat.toUpperCase(), mode: 'insensitive' };
+        }
+        const books = await prisma.book.findMany({
+            where,
+            orderBy: { [sortBy]: sort },
+            skip,
+            take: limit
+        })
+
+        let filteredBooks = books;
+       
+
+        if (b_name) {
+            // Fuzzy match on book names
+            const bookNames = books.map(book => book.name);
+            const fuzzyBookResults = fuzzy.filter(b_name, bookNames);
+            const matchedBooks = new Set(fuzzyBookResults.map(result => result.string));
+            console.log(matchedBooks);
+      
+            filteredBooks = filteredBooks.filter(book => matchedBooks.has(book.name));
+            console.log('Lenght',filteredBooks.length);
+          }
+      
+          if (a_name) {
+            // Fuzzy match on author names (handle array of authors)
+            const authorNames = books.map(book => book.authors).flat(); // Flatten the authors array to match against
+            const fuzzyAuthorResults = fuzzy.filter(a_name, authorNames);
+            const matchedAuthors = new Set(fuzzyAuthorResults.map(result => result.string));
+      
+            filteredBooks = filteredBooks.filter(book =>
+              book.authors.some(author => matchedAuthors.has(author))
+            );
+          }
+
+        // Step 3: Group books by unique bookCode and include additional counts
+        const groupedBooks = groupBooks(filteredBooks)
+
+        const totalCount = await prisma.book.count({ where });
+
+        return res.status(200).json({
+            message: 'Success',
+            groupedBooks,
+            pagination: {
+              totalCount,
+              totalPages: Math.ceil(totalCount / limit),
+              currentPage: page,
+              hasNextPage: page < Math.ceil(totalCount / limit),
+              hasPrevPage: page > 1,
+            },
+          });
+
+    } catch (error) {
+        console.error('Error filtering books:', error);
+        res.status(500).json({ error: 'Something went wrong' });
+    }
+}
+
 
 
 /**
@@ -424,7 +496,7 @@ export const sendVerifyEmail = async (req, res) => {
             },
             data: {
                 emailVerificationToken: hashedEmailVerificationToken,
-                emailVerificationTokenExpiry: new Date(Date.now() + 1 * 60 * 1000)
+                emailVerificationTokenExpiry: new Date(Date.now() + 5 * 60 * 1000) // 5 min
             }
         })
         try {
@@ -471,9 +543,9 @@ export const sendForgotPasswordLink = async (req, res) => {
 
         try {
             await sendPasswordResetNotification(email, userExist.username, resetPasswordToken);
-            return res.redirect(`${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`)
+            // return res.redirect(`${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`)
 
-            // return sendResponse(res, 200, "Password Reset Link Sent Successfully")
+            return sendResponse(res, 200, "Password Reset Link Sent Successfully")
         } catch (emailError) {
             console.error("Failed to send password reset link");
             return sendError(res, 500, "Failed to Send Password Reset Link");
@@ -486,7 +558,7 @@ export const sendForgotPasswordLink = async (req, res) => {
 
 
 // POST {newPassword, confirmPassword}
-// {BASE_URI}/changepassword?token=somevalue
+// {BASE_URI}/resetpassword?token=somevalue
 
 export const resetPassword = async (req, res) => {
     try {
