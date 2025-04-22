@@ -345,28 +345,22 @@ export const filteredBooks = async (req, res) => {
 
         const { a_name, b_name, sort, cat, page, sortBy, limit } = parsed.data;
 
-        console.log(a_name, b_name, sort, sortBy, cat, page, limit);
 
         if (a_name && b_name) {
             return res.status(400).json({ error: 'You can only search by either author name or book name, not both.' });
         }
 
-        const skip = (page - 1) * limit;
-
-        // Step 1: Apply filters on the DB level first (category, sort,etc.)
+        // Apply filters on the DB level first (category, sort,etc.)
         const where = {};
         if (cat) {
             where.category = { equals: cat.toUpperCase(), mode: 'insensitive' };
         }
         const books = await prisma.book.findMany({
             where,
-            orderBy: { [sortBy]: sort },
-            skip,
-            take: limit
+            orderBy: { [sortBy]: sort }
         })
 
         let filteredBooks = books;
-
 
         if (b_name) {
             // Fuzzy match on book names
@@ -390,20 +384,25 @@ export const filteredBooks = async (req, res) => {
             );
         }
 
-        // Step 3: Group books by unique bookCode and include additional counts
+        // Group books by unique bookCode and include additional counts
         const groupedBooks = groupBooks(filteredBooks)
 
-        const totalCount = await prisma.book.count({ where });
+        const totalCount = groupedBooks.length;
+        const totalPages = Math.ceil(totalCount / limit);
+        
+        const validPage = Math.max(1, Math.min(page, totalPages || 1));
+        const skip = (validPage - 1) * limit;
+        const paginatedBooks = groupBooks(filteredBooks).slice(skip, skip + limit);
 
         return res.status(200).json({
             message: 'Success',
-            groupedBooks,
+            groupedBooks: paginatedBooks,
             pagination: {
                 totalCount,
-                totalPages: Math.ceil(totalCount / limit),
-                currentPage: page,
-                hasNextPage: page < Math.ceil(totalCount / limit),
-                hasPrevPage: page > 1,
+                totalPages,
+                currentPage: validPage,
+                hasNextPage: validPage < totalPages,
+                hasPrevPage: validPage > 1
             },
         });
 

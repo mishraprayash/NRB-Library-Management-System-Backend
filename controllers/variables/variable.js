@@ -39,6 +39,9 @@ export const updateVariables = async (req, res) => {
         ) {
             return res.status(400).json({ message: "Please provide id, MAX_BOOK_LIMIT, MAX_RENEWAL_LIMIT and BOOK_EXPIRY_DATE" })
         }
+
+        
+
         const rowExist = await prisma.variables.findMany();
         if (!rowExist.length) {
             return res.status(400).json({ message: "Please create the variables in the table first." });
