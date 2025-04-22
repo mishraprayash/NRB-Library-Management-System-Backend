@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getVariables, createVariables, updateVariables } from "../controllers/variables/variable.js";
+import { getVariables, createVariables, updateVariables, removeCategory } from "../controllers/variables/variable.js";
 import { isCookieAuthorized, admin_superAdmin_both, super_admin_only } from "../middleware/authMiddleware.js";
 import { validateSchema } from "../middleware/validateSchema.js";
 import { variablesCreateSchema, variablesUpdateSchema } from "../validation/schema.js";
@@ -31,5 +31,7 @@ router.route('/create').post(isCookieAuthorized, super_admin_only, validateSchem
  * @access SuperAdmin only
  */
 router.route('/update').post(isCookieAuthorized, super_admin_only, validateSchema(variablesUpdateSchema), updateVariables);
+
+router.route('/deletecategory').post(isCookieAuthorized, super_admin_only, removeCategory);
 
 export default router

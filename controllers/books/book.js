@@ -602,7 +602,7 @@ export const getDashBoardInfo = async (req, res) => {
     try {
 
         // get DB constraints
-        const [MAX_BORROW_LIMIT, EXPIRYDATE, CONSECUTIVE_BORROW_LIMIT_DAYS, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints(req, res);
+        const [MAX_BORROW_LIMIT, EXPIRYDATE, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints(req, res);
 
         // Get all books count by category
         const countBooksByCategory = await prisma.book.groupBy({
@@ -690,7 +690,6 @@ export const getDashBoardInfo = async (req, res) => {
                 MAX_BORROW_LIMIT,
                 MAX_RENEWAL_LIMIT,
                 EXPIRYDATE,
-                CONSECUTIVE_BORROW_LIMIT_DAYS,
                 CATEGORIES
             }
         });

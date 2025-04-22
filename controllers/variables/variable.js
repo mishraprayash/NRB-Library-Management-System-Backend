@@ -1,4 +1,5 @@
 
+import { getDBConstraints } from "../../lib/helpers.js";
 import prisma from "../../lib/prisma.js";
 
 /*
@@ -40,8 +41,6 @@ export const updateVariables = async (req, res) => {
             return res.status(400).json({ message: "Please provide id, MAX_BOOK_LIMIT, MAX_RENEWAL_LIMIT and BOOK_EXPIRY_DATE" })
         }
 
-        
-
         const rowExist = await prisma.variables.findMany();
         if (!rowExist.length) {
             return res.status(400).json({ message: "Please create the variables in the table first." });
@@ -58,6 +57,39 @@ export const updateVariables = async (req, res) => {
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+export const removeCategory = async (req, res) => {
+    try {
+        const { category } = req.body;
+        const variable = await prisma.variables.findFirst();
+        if (!variable) {
+            return res.status(400).json({ message: "Please create the variables in the table first." });
+        }
+
+        const booksByCategory = await prisma.book.findMany({
+            where: {
+                category
+            }
+        })
+        if (booksByCategory.length) {
+            return res.status(400).json({ message: "Book with this category exists. First delete the books" });
+        }
+
+        // array with removed category
+        const updatedCategories = variable.CATEGORIES.filter((cat) => cat !== category)
+
+        // updating category handling removed
+        await prisma.variables.updateMany({
+            data: {
+                CATEGORIES: updatedCategories
+            }
+        })
+        return res.status(200).json({ message: 'Delete Category Successfully' });
+
+    } catch (error) {
+        throw error;
     }
 }
 
