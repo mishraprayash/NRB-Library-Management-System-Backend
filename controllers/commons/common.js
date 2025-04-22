@@ -99,6 +99,7 @@ export const getAvailableBooks = async (req, res) => {
             where: {
                 available: true
             },
+            distinct: ['name'],
             orderBy: {
                 createdAt: 'desc'
             }
