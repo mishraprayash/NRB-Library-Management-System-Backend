@@ -99,16 +99,16 @@ export const getAvailableBooks = async (req, res) => {
             where: {
                 available: true
             },
-            distinct: ['name'],
             orderBy: {
                 createdAt: 'desc'
             }
         });
 
+        const groupedBooks = groupBooks(allBooks);
 
         return res.status(200).json({
             message: "Available Books Fetched Successfully",
-            books: allBooks
+            books: groupedBooks
         });
 
     } catch (error) {
