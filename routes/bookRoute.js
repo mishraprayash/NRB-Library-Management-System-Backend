@@ -1,17 +1,18 @@
 import { Router } from "express";
 
-import { 
-     addBook,
-     borrowBook, 
-     returnBook, 
-     renewBook, 
-     getAllBorrowedBooks, 
-     deleteBookByCount, 
-     deleteSameMultipleBook, 
-     getDashBoardInfo, 
-     editBookUpdated, 
-     addStock, 
-     getRecentBooks
+import {
+    addBook,
+    borrowBook,
+    returnBook,
+    renewBook,
+    getAllBorrowedBooks,
+    deleteBookByCount,
+    deleteSameMultipleBook,
+    getDashBoardInfo,
+    editBookUpdated,
+    addStock,
+    getRecentBooks,
+    getExpiredBooks
 } from "../controllers/books/book.js";
 
 import {
@@ -21,7 +22,7 @@ import {
     deleteBookSchema,
     deleteBookByCountSchema,
     addStockSchema,
-    searchQuerySchema
+    searchAllBookSchema
 } from "../validation/schema.js";
 
 import { filteredBooks, getAvailableBooks, getBooksWithDuplication, getBorrowedBooksForMember } from "../controllers/commons/common.js";
@@ -91,7 +92,7 @@ router.route('/getallborrowed').get(isCookieAuthorized, admin_superAdmin_both, g
  * @description Get all books in the library
  * @access All authenticated users
  */
-router.route('/getall').get(isCookieAuthorized, validateSchema(searchQuerySchema), filteredBooks);
+router.route('/getall').get(isCookieAuthorized, validateSchema(searchAllBookSchema), filteredBooks);
 
 /**
  * @route POST /add
@@ -136,5 +137,7 @@ router.route('/deleteall').post(isCookieAuthorized, super_admin_only, validateSc
 router.route('/delete').post(isCookieAuthorized, super_admin_only, validateSchema(deleteBookByCountSchema), deleteBookByCount);
 
 router.route('/recent').get(isCookieAuthorized, getRecentBooks);
+
+router.route('/expired').get(isCookieAuthorized, getExpiredBooks)
 
 export default router
