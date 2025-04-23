@@ -7,7 +7,7 @@ import { sendEmailVerificationError, sendEmailVerificationResponse, sendError, s
 import { sendPasswordResetNotification, sendVerificationEmail } from "../../services/emailService/emailSenders.js";
 import { version as uuidVersion, validate as uuidValidate } from 'uuid';
 import { deleteCookie, groupBooks } from "../../lib/helpers.js"
-import { searchQuerySchema } from "../../validation/schema.js";
+import { searchAllBookSchema } from "../../validation/schema.js";
 import { v4 as uuidv4 } from "uuid"
 import { createHash } from "crypto";
 
@@ -338,12 +338,12 @@ export const logout = async (req, res) => {
 export const filteredBooks = async (req, res) => {
     try {
 
-        const parsed = searchQuerySchema.safeParse(req.query);
+        const parsed = searchAllBookSchema.safeParse(req.query);
         if (!parsed.success) {
             return res.status(400).json({ error: parsed.error.flatten() });
         }
 
-        const { a_name, b_name, sort, cat, page, sortBy, limit } = parsed.data;
+        const { a_name, b_name, sort, cat, page, sortBy, limit, status } = parsed.data;
 
 
         if (a_name && b_name) {
@@ -351,13 +351,16 @@ export const filteredBooks = async (req, res) => {
         }
 
         // Apply filters on the DB level first (category, sort,etc.)
-        const where = {};
+        let where = {};
         if (cat) {
             where.category = { equals: cat.toUpperCase(), mode: 'insensitive' };
         }
+        if (status) {
+            where.available = status === "true" ? true : false
+        }
         const books = await prisma.book.findMany({
             where,
-            orderBy: { [sortBy]: sort }
+            orderBy: { [sortBy]: sort },
         })
 
         let filteredBooks = books;
@@ -370,7 +373,6 @@ export const filteredBooks = async (req, res) => {
             console.log(matchedBooks);
 
             filteredBooks = filteredBooks.filter(book => matchedBooks.has(book.name));
-            console.log('Lenght', filteredBooks.length);
         }
 
         if (a_name) {
@@ -389,7 +391,7 @@ export const filteredBooks = async (req, res) => {
 
         const totalCount = groupedBooks.length;
         const totalPages = Math.ceil(totalCount / limit);
-        
+
         const validPage = Math.max(1, Math.min(page, totalPages || 1));
         const skip = (validPage - 1) * limit;
         const paginatedBooks = groupBooks(filteredBooks).slice(skip, skip + limit);
