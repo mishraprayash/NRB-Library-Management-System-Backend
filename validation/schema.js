@@ -109,16 +109,31 @@ export const addStockSchema = z.object({
     stock: int.positive()
 })
 
-const ALLOWED_SORT_FIELDS = ['createdAt', 'cost', 'publishedYear'];
+const ALLOWED_SORT_ALLBOOK_FIELDS = ['createdAt', 'cost', 'publishedYear'];
+const ALLOWED_SORT_BORROWEDBOOK_FIELDS = ['borrowedDate', 'expiryDate']
+const ALLOWED_STATUS =['true','false'];
 
-export const searchQuerySchema = z.object({
+export const searchAllBookSchema = z.object({
     a_name: z.string().optional(),
     b_name: z.string().optional(),
     sort: z.enum(['asc', 'desc']).optional().default('desc'),
-    sortBy: z.string().optional().default('createdAt').refine((val) => !val || ALLOWED_SORT_FIELDS.includes(val), {
-        message: `sortBy must be one of: ${ALLOWED_SORT_FIELDS.join(', ')}`,
+    sortBy: z.string().optional().default('createdAt').refine((val) => !val || ALLOWED_SORT_ALLBOOK_FIELDS.includes(val), {
+        message: `sortBy must be one of: ${ALLOWED_SORT_ALLBOOK_FIELDS.join(', ')}`,
     }),
     cat: z.string().optional(),
     page: z.coerce.number().positive().optional().default(1),
     limit: z.coerce.number().positive().max(100).optional().default(50),
+    status:z.string().optional().refine((val)=>!val || ALLOWED_STATUS.includes(val),{
+        message:`status must be one of: ${ALLOWED_STATUS.join(', ')}`
+    })
 });
+
+export const searchBorrowedBookSchema = z.object({
+    b_name: z.string().optional(),
+    sort: z.enum(['asc', 'desc']).optional().default('desc'),
+    page: z.coerce.number().positive().optional().default(1),
+    sortBy: z.string().optional().default('borrowedDate').refine((val) => !val || ALLOWED_SORT_BORROWEDBOOK_FIELDS.includes(val), {
+        message: `sortBy must be one of: ${ALLOWED_SORT_BORROWEDBOOK_FIELDS.join(', ')}`,
+    }),
+    limit: z.coerce.number().positive().max(100).optional().default(50),
+})
