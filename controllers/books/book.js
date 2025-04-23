@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { validateMember, getDBConstraints, groupBooks } from "../../lib/helpers.js"
 import { sendResponse, sendError } from '../../lib/responseHelper.js';
+import { searchBorrowedBookSchema } from '../../validation/schema.js';
 
 
 /**
@@ -65,7 +66,8 @@ export const addBook = async (req, res) => {
 /** 
 If needed to change any details later if there are any typos, this route can
 be used to edit the information. 
-- If you change one book, then the details for all same book in the library will be changed.  
+- If you change one book, then the details for all same book in the library will be changed. 
+@deprecated 
 */
 
 export const editBook = async (req, res) => {
@@ -310,15 +312,29 @@ export const borrowBook = async (req, res) => {
 /**
 gives all the borrwed books list by all members.
 admin or superadmin can access this route.
+
+b_name=optional
+/api/v1/book/getallborrowed?b_name=some_value
 */
 
 export const getAllBorrowedBooks = async (req, res) => {
     try {
 
-        const allBorrowedBooks = await prisma.borrowedBook.findMany({
-            where: {
-                returned: false
-            },
+        const parsed = searchBorrowedBookSchema.safeParse(req.query);
+        if (!parsed.success) {
+            return res.status(400).json({ error: parsed.error.flatten() });
+        }
+        const { b_name, sort, page, sortBy, limit } = parsed.data;
+        let where = {
+            returned: false, expiryDate: {
+                gte: new Date(Date.now())
+            }
+        };
+
+        console.log(where);
+        const borrowedBooks = await prisma.borrowedBook.findMany({
+            where,
+            orderBy: { [sortBy]: sort },
             include: {
                 member: {
                     select: {
@@ -330,8 +346,33 @@ export const getAllBorrowedBooks = async (req, res) => {
             },
         })
 
+        let filteredBooks = borrowedBooks;
 
-        return res.status(200).json({ message: "Borrowed Books Found", borrowedBooks: allBorrowedBooks })
+        if (b_name) {
+            const bookNames = borrowedBooks.map(book => book.name);
+            const fuzzyBookResults = fuzzy.filter(b_name, bookNames);
+            const matchedBooks = new Set(fuzzyBookResults.map(result => result.string));
+            filteredBooks = filteredBooks.filter(book => matchedBooks.has(book.name));
+        }
+
+        const totalCount = filteredBooks.length;
+        const totalPages = Math.ceil(totalCount / limit);
+
+        const validPage = Math.max(1, Math.min(page, totalPages || 1));
+        const skip = (validPage - 1) * limit;
+        const paginatedBooks = filteredBooks.slice(skip, skip + limit);
+
+        return res.status(200).json({
+            message: 'Success',
+            groupedBooks: paginatedBooks,
+            pagination: {
+                totalCount,
+                totalPages,
+                currentPage: validPage,
+                hasNextPage: validPage < totalPages,
+                hasPrevPage: validPage > 1
+            },
+        });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
@@ -752,6 +793,8 @@ export const editBookUpdated = async (req, res) => {
 }
 
 
+// add a book stock
+
 export const addStock = async (req, res) => {
     try {
         const { bookCode, stock } = req.body;
@@ -784,6 +827,7 @@ export const addStock = async (req, res) => {
     }
 }
 
+// get the top 10 recently added books
 
 export const getRecentBooks = async (req, res) => {
     try {
@@ -796,6 +840,69 @@ export const getRecentBooks = async (req, res) => {
         })
         return res.status(200).json({ message: 'Borrowed Recent Books', recentBooks })
 
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ message: "Internal Server Error" });
+    }
+}
+
+
+// get all the expired books that are not yet returned
+export const getExpiredBooks = async (req, res) => {
+    try {
+
+        const parsed = searchBorrowedBookSchema.safeParse(req.query);
+        if (!parsed.success) {
+            return res.status(400).json({ error: parsed.error.flatten() });
+        }
+        const { b_name, sort, page, sortBy, limit } = parsed.data;
+        let where = {
+            returned: false, expiryDate: {
+                lt: new Date(Date.now())
+            }
+        };
+
+        const borrowedBooks = await prisma.borrowedBook.findMany({
+            where,
+            orderBy: { [sortBy]: sort },
+            include: {
+                member: {
+                    select: {
+                        name: true,
+                        username: true
+                    }
+                },
+                book: {}
+            },
+        })
+
+        let filteredBooks = borrowedBooks;
+
+        if (b_name) {
+            const bookNames = borrowedBooks.map(book => book.name);
+            const fuzzyBookResults = fuzzy.filter(b_name, bookNames);
+            const matchedBooks = new Set(fuzzyBookResults.map(result => result.string));
+            filteredBooks = filteredBooks.filter(book => matchedBooks.has(book.name));
+        }
+
+        const totalCount = filteredBooks.length;
+        const totalPages = Math.ceil(totalCount / limit);
+
+        const validPage = Math.max(1, Math.min(page, totalPages || 1));
+        const skip = (validPage - 1) * limit;
+        const paginatedBooks = filteredBooks.slice(skip, skip + limit);
+
+        return res.status(200).json({
+            message: 'Success',
+            expiredBooks: paginatedBooks,
+            pagination: {
+                totalCount,
+                totalPages,
+                currentPage: validPage,
+                hasNextPage: validPage < totalPages,
+                hasPrevPage: validPage > 1
+            },
+        });
     } catch (error) {
         console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
