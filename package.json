@@ -10,17 +10,24 @@
     "start": "node start.js",
     "build": "prisma generate",
     "clean": "rm -rf logs/*",
+    "lint": "eslint .",
+    "seed:dummy":"node prisma/Seeds/seedDummy.js",
+    "seed:book": "node prisma/Seeds/seedBooks.js",
+    "seed:user": "node prisma/Seeds/seedUser.js",
+    "seed:all": "npm run seed:book; npm run seed:user",
+    "db-flush:all": "node prisma/Seeds/flush.js all",
+    "db-flush:members": "node prisma/Seeds/flush.js members",
+    "db-flush:books": "node prisma/Seeds/flush.js books",
+    "db-flush:borrowed": "node prisma/Seeds/flush.js borrowed",
+    "db-flush:logs": "node prisma/Seeds/flush.js logs",
+    "db-flush:variables": "node prisma/Seeds/flush.js vars",
     "pm2:start": "pm2 start ecosystem.config.cjs",
     "pm2:stop": "pm2 stop ecosystem.config.cjs",
     "pm2:restart": "pm2 restart ecosystem.config.cjs",
-    "pm2:logs": "pm2 logs",
-    "lint": "eslint .",
-    "seed:book": "node prisma/seedBooks.js",
-    "seed:user": "node prisma/seedUser.js",
-    "seed:all": "npm run seed:book; npm run seed:user"
+    "pm2:logs": "pm2 logs"
   },
   "prisma": {
-    "seed": "node prisma/seedDummy.js"
+    "seed": "node prisma/Seeds/seedDummy.js"
   },
   "keywords": [],
   "author": "",

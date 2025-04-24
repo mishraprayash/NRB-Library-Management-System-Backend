@@ -15,24 +15,29 @@ export const userLoginSchema = z.object({
     username: stringNonEmpty,
     password: stringNonEmpty
 })
+
 export const userRegisterSchema = z.object({
     name: stringNonEmpty,
     username: stringNonEmpty,
     email: email,
     password: password,
-    phoneNo: phoneNo
+    phoneNo: phoneNo,
+    designation: stringNonEmpty
 })
+
 export const userEditSchema = z.object({
-    name: stringNonEmpty,
-    username: stringNonEmpty,
-    email: email,
+    memberId: id,
+    name: stringNonEmpty.optional(),
+    username: stringNonEmpty.optional(),
+    email: email.optional(),
     password: z.string()
         .transform(val => val === "" ? undefined : val)
         .optional()
         .refine(val => val === undefined || val.length >= 5, {
             message: "Password must be at least 5 characters",
         }),
-    phoneNo: phoneNo
+    phoneNo: phoneNo.optional(),
+    designation: stringNonEmpty.optional()
 })
 
 // ---------- BOOK OPERATIONS ----------
@@ -89,6 +94,10 @@ export const getBorrowedBooksSchema = z.object({
     memberId: id
 })
 
+export const deactivateMemberSchema = z.object({
+    username: stringNonEmpty
+})
+
 // ---------- VARIABLES OPERATIONS ----------
 export const variablesCreateSchema = z.object({
     MAX_BORROW_LIMIT: int.positive(),
@@ -109,9 +118,11 @@ export const addStockSchema = z.object({
     stock: int.positive()
 })
 
+
+// -------- SEARCH OPERATIONS -----------
 const ALLOWED_SORT_ALLBOOK_FIELDS = ['createdAt', 'cost', 'publishedYear'];
 const ALLOWED_SORT_BORROWEDBOOK_FIELDS = ['borrowedDate', 'expiryDate']
-const ALLOWED_STATUS =['true','false'];
+const ALLOWED_STATUS = ['true', 'false'];
 
 export const searchAllBookSchema = z.object({
     a_name: z.string().optional(),
@@ -123,8 +134,8 @@ export const searchAllBookSchema = z.object({
     cat: z.string().optional(),
     page: z.coerce.number().positive().optional().default(1),
     limit: z.coerce.number().positive().max(100).optional().default(50),
-    status:z.string().optional().refine((val)=>!val || ALLOWED_STATUS.includes(val),{
-        message:`status must be one of: ${ALLOWED_STATUS.join(', ')}`
+    status: z.string().optional().refine((val) => !val || ALLOWED_STATUS.includes(val), {
+        message: `status must be one of: ${ALLOWED_STATUS.join(', ')}`
     })
 });
 

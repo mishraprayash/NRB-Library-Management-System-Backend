@@ -8,7 +8,7 @@
 import express from "express";
 import winston from 'winston';
 
-import { runBackgroundReapeatableReminderQueue } from "./services/emailService/emailSenders.js";
+import { runBackgroundReapeatableReminderQueue } from "./services/emailService/emailSender.js"
 import { runEmailWorkers } from "./services/bullMQ/worker.js";
 import { config } from "dotenv";
 
@@ -21,12 +21,6 @@ const requiredEnvVars = [
   'EMAIL_AUTH_PASSWORD'
 ];
 
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
-
-if (missingEnvVars.length > 0) {
-  logger.error('Missing required environment variables:', missingEnvVars);
-  process.exit(1);
-}
 
 // Constants
 const PORT = process.env.WORKER_PORT || 5001;
@@ -56,11 +50,19 @@ const logger = winston.createLogger({
   ]
 });
 
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  logger.error('Missing required environment variables:', missingEnvVars);
+  process.exit(1);
+}
+
+
 // Initialize Express app for health checks
 const app = express();
 
 // Health check endpoint
-app.get('worker/health', (req, res) => {
+app.get('/worker/health', (req, res) => {
   res.json({ 
     status: 'healthy',
     service: 'worker',

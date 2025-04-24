@@ -269,4 +269,3 @@ function generateVerificationEmail(data, lang = 'en') {
 </html>`;
 
 }
-

@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 import { sendEmail } from "../emailService/emailConfig.js";
-import { handleScheduledBookReminders } from "../emailService/emailSenders.js";
+import { handleScheduledBookReminders } from "../emailService/emailSender.js";
 
 
 

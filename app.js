@@ -21,11 +21,11 @@ import { v4 as uuidv4 } from "uuid"
 import { config } from "dotenv";
 
 // Route imports
-import authRoute from "./routes/authRoutes.js";
-import bookRoute from "./routes/bookRoute.js";
-import memberRoute from "./routes/memberRoute.js";
-import commonRoute from "./routes/commonRoute.js";
-import variableRoute from "./routes/variableRoutes.js";
+import authRoute from "./routes/auth.route.js";
+import bookRoute from "./routes/book.route.js";
+import memberRoute from "./routes/member.route.js";
+import commonRoute from "./routes/common.route.js";
+import variableRoute from "./routes/variable.routes.js";
 
 
 import { errorHandler } from "./middleware/errorHandler.js";
@@ -99,8 +99,9 @@ function setupExpressApp() {
     xssFilter: true,
   }));
 
-  // Request timeout (10 seconds)
-  app.use(timeout('10s'));
+  // Request timeout (20 seconds)
+  app.use(timeout('20s'));
+
   app.use((req, res, next) => {
     if (!req.timedout) next();
   });
@@ -127,7 +128,7 @@ function setupExpressApp() {
   // Global rate limiter - 100 requests per 15 minutes
   const globalLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 100, // Limit each IP to 60 requests per windowMs
+    max: 150, // Limit each IP to 60 requests per windowMs
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
     message: 'Too many requests from this IP, please try again after 15 minutes',
@@ -136,7 +137,7 @@ function setupExpressApp() {
   // Auth route specific limiter - 5 requests per minute
   const authLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 60, // Limit each IP to 5 requests per windowMs
+    max: 100, // Limit each IP to 5 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
     message: 'Too many login attempts, please try again after a minute',

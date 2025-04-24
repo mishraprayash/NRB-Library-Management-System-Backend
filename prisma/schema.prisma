@@ -45,6 +45,10 @@ model Book {
   createdAt     DateTime @default(now())
 
   borrowedBooks BorrowedBook[]
+
+  @@index([bookCode])
+  @@index([name])
+  @@index([category])
 }
 
 /**
@@ -60,6 +64,8 @@ model Member {
   password                     String
   phoneNo                      String         @unique
   role                         Role           @default(MEMBER)
+  designation                  String
+  isActive                     Boolean        @default(true)
   isEmailVerified              Boolean        @default(false)
   emailVerificationToken       String?
   emailVerificationTokenExpiry DateTime?
@@ -67,6 +73,11 @@ model Member {
   resetPasswordTokenExpiry     DateTime?
   createdAt                    DateTime       @default(now())
   borrowedBooks                BorrowedBook[]
+
+  @@index([role])
+  @@index([isActive])
+  @@index([emailVerificationToken])
+  @@index([resetPasswordToken])
 }
 
 /**
@@ -88,15 +99,19 @@ model BorrowedBook {
 
   book   Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
   member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([bookId])
+  @@index([memberId])
+  @@index([returned])
+  @@index([expiryDate])
 }
 
 model Variables {
-  id                            Int      @unique @default(autoincrement())
-  MAX_BORROW_LIMIT              Int
-  MAX_RENEWAL_LIMIT             Int
-  EXPIRYDATE                    Int
-  CONSECUTIVE_BORROW_LIMIT_DAYS Int
-  CATEGORIES                    String[]
+  id                Int      @unique @default(autoincrement())
+  MAX_BORROW_LIMIT  Int
+  MAX_RENEWAL_LIMIT Int
+  EXPIRYDATE        Int
+  CATEGORIES        String[]
 }
 
 model Logs {
