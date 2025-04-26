@@ -5,11 +5,13 @@
 
 import jwt from "jsonwebtoken";
 import pkg from 'jsonwebtoken';
+import { deleteCookie } from "../lib/helpers.js";
 const { JsonWebTokenError } = pkg;
 
 // Helper function to send authentication errors
 const sendAuthError = (res, status, message, details = null) => {
-  return res.status(status).json({ message, details });
+  deleteCookie(res);
+  return res.redirect(`${process.env.FRONTEND_URI}/login`);
 };
 
 // Get token from cookies
@@ -33,7 +35,6 @@ const verifyToken = async (req, res, next) => {
     if (error instanceof JsonWebTokenError) {
       return sendAuthError(res, 401, "Authentication failed", "Invalid or expired token");
     }
-    console.error("Authentication error:", error);
     return sendAuthError(res, 500, "Internal server error", "Error during authentication");
   }
 };

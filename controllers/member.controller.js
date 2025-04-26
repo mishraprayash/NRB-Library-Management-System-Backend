@@ -170,30 +170,31 @@ export const deleteMember = async (req, res) => {
     try {
         const { memberId } = req.body;
 
-        if (!memberId || !Number.isInteger(memberId)) {
-            return res.status(500).json({ message: "Please provide a valid memberId" })
-        }
         const memberExist = await validateMember(memberId);
 
         if (!memberExist) {
-            return res.status(400).json({ message: `Member with this id ${memberId} doesnot exist` });
+            return sendResponse(res,200,`Member with this id ${memberId} doesnot exist`);
         }
 
-        const deletedMember = await prisma.member.delete({
+        const borrowedBooks = await prisma.borrowedBook.findMany({
+            where: {
+                memberId,
+                returned:false
+            }
+        })
+
+        if (borrowedBooks.length) {
+            return sendError(res, 400, "Cannot delete. The Member has remainig books to return")
+        }
+        await prisma.member.delete({
             where: {
                 id: memberId
             }
         })
-
-        if (!deletedMember) {
-            return res.status(400).json({ message: 'Error while deleting member' });
-        }
-
-        return res.status(200).json({ message: "Member Deleted Successfully" });
-
-    } catch (error) {
-        console.log(error)
-        return res.status(500).json({ message: "Internal Server Error" });
+        return sendResponse(res, 200, "Member Deleted Successfully");
+    }
+    catch (error) {
+        throw error;
     }
 
 }
@@ -302,7 +303,7 @@ export const getAllAdmins = async (req, res) => {
     try {
         const admins = await prisma.member.findMany({
             where: {
-                role: "ADMIN"
+                role: "ADMIN",
             },
             select: {
                 name: true,
@@ -320,7 +321,6 @@ export const getAllAdmins = async (req, res) => {
         throw error;
     }
 }
-
 
 export const deactivateMember = async (req, res) => {
     try {

@@ -41,3 +41,5 @@ coverage/
 # Debugging
 debug/
 debug.log
+
+employee_info.json

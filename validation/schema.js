@@ -98,6 +98,10 @@ export const deactivateMemberSchema = z.object({
     username: stringNonEmpty
 })
 
+export const deleteMemberSchema = z.object({
+    memberId: id
+})
+
 // ---------- VARIABLES OPERATIONS ----------
 export const variablesCreateSchema = z.object({
     MAX_BORROW_LIMIT: int.positive(),

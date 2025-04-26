@@ -59,7 +59,7 @@ export const addBook = async (req, res) => {
         // return res.status(200).json({ message: `Book Added Successfully`, count: addedBooks.count });
 
     } catch (error) {
-        console.log(error)
+        console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 }
@@ -227,14 +227,11 @@ export const getAllBorrowedBooks = async (req, res) => {
             return res.status(400).json({ error: parsed.error.flatten() });
         }
         const { b_name, sort, page, sortBy, limit } = parsed.data;
-        console.log(b_name, sort, page, sortBy, limit);
         let where = {
             returned: false, expiryDate: {
                 gte: new Date(Date.now())
             }
         };
-
-        // console.log(where);
         const borrowedBooks = await prisma.borrowedBook.findMany({
             where,
             orderBy: { [sortBy]: sort },
@@ -325,7 +322,6 @@ export const returnBook = async (req, res) => {
                 },
             });
 
-            console.log(updatedBorrowedBooks);
             if (updatedBorrowedBooks.count === 0) {
                 throw new Error('Error while returning books 1');
             }
@@ -334,7 +330,6 @@ export const returnBook = async (req, res) => {
                 where: { id: { in: bookIds } },
                 data: { available: true },
             });
-            console.log(updateBook);
             if (updateBook.count === 0) {
                 throw new Error('Error while returning books 2');
             }
@@ -459,7 +454,7 @@ export const renewBook = async (req, res) => {
         });
 
     } catch (error) {
-        console.log("Error", error);
+        console.log(error);
         return res.status(500).json({ message: "Internal Server Error" });
     }
 };

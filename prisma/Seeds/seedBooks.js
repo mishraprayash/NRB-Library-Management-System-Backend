@@ -23,12 +23,9 @@ function toTitleCase(str) {
 
 const allCategories = [];
 
-
-
-
 async function SeedBook() {
 
-  const workbook = xlsx.readFile('/Users/prayashmishra/nrb-internship/nrb-library/prisma/Seeds/BookList.xls');
+  const workbook = xlsx.readFile('/Users/prayashmishra/nrb-internship/nrb-library-backend/prisma/Seeds/BookList.xls');
   const sheetName = workbook.SheetNames[0];
   const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 

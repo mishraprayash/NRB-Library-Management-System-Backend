@@ -65,7 +65,6 @@ export const getAvailableBooks = async (req, res) => {
             const bookNames = books.map(book => book.name);
             const fuzzyBookResults = fuzzy.filter(b_name, bookNames);
             const matchedBooks = new Set(fuzzyBookResults.map(result => result.string));
-            console.log(matchedBooks);
 
             filteredBooks = filteredBooks.filter(book => matchedBooks.has(book.name));
         }
@@ -314,7 +313,6 @@ export const getAllBooks = async (req, res) => {
         }
         const { a_name, b_name, sort, cat, page, sortBy, limit, status } = parsed.data;
 
-        console.log(a_name, b_name, sort, cat, page, sortBy, limit, status);
 
         if (a_name && b_name) {
             return res.status(400).json({ error: 'You can only search by either author name or book name, not both.' });
@@ -346,8 +344,6 @@ export const getAllBooks = async (req, res) => {
             const bookNames = books.map(book => book.name);
             const fuzzyBookResults = fuzzy.filter(b_name, bookNames);
             const matchedBooks = new Set(fuzzyBookResults.map(result => result.string));
-            console.log(matchedBooks);
-
             filteredBooks = filteredBooks.filter(book => matchedBooks.has(book.name));
         }
 
@@ -400,7 +396,6 @@ export const verifyEmail = async (req, res) => {
         if (!token) {
             return sendEmailVerificationError(res, 400, "Token is required");
         }
-        // console.log('veify', token);
         const isTokenValid = uuidValidate(token) && uuidVersion(token) === 4;
 
         if (!isTokenValid) {
@@ -549,7 +544,6 @@ export const resetPassword = async (req, res) => {
         }
         const hashedResetPasswordToken = createHash('sha256').update(resetPasswordToken).digest('hex');
 
-        console.log('Change Password', hashedResetPasswordToken);
 
         const user = await prisma.member.findFirst({
             where: {
