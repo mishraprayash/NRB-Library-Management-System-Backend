@@ -3,6 +3,12 @@ import xlsx from 'xlsx';
 import prisma from '../../lib/prisma.js';
 
 import { v4 as uuidv4 } from 'uuid';
+import { convertBookExcelToJSON } from "./ExceltoJSON.js"
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename);
 
 function generateBookCode() {
   return uuidv4();
@@ -31,11 +37,7 @@ function toTitleCase(str) {
 const allCategories = [];
 
 async function SeedBook() {
-  const workbook = xlsx.readFile(
-    '/Users/prayashmishra/nrb-internship/nrb-library-backend/prisma/Seeds/BookList.xls'
-  );
-  const sheetName = workbook.SheetNames[0];
-  const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+  const data = convertBookExcelToJSON(path.join(__dirname, '/BookList.xls'))
 
   const seenBooks = new Map();
 
@@ -48,7 +50,6 @@ async function SeedBook() {
   for (const row of data) {
     totalBooksCount++;
     if (!isValidRow(row)) continue;
-
     // converting each bookName to Title Case
     const bookName = toTitleCase(row['Book Name'].trim().toUpperCase());
     const authorsRaw = row['Author Name'].trim();
@@ -99,21 +100,18 @@ async function SeedBook() {
       });
       totalSuccess++;
     } catch (error) {
-      console.error(`Failed to insert book: ${bookName}`, err);
+      console.error(`❌ Failed to insert book: ${bookName}`, err);
     }
   }
-  console.log(`${totalBooksCount} Total Books`);
-  console.log(`${totalSuccess} added Successfully`);
+  console.log(`Total Books: 1144`);
+  console.log(`Total added successfully: ${totalSuccess}`);
 }
 
 async function UpdateVariables() {
   try {
-    await prisma.variables.deleteMany();
-    await prisma.variables.create({
+    // await prisma.variables.();
+    await prisma.variables.updateMany({
       data: {
-        MAX_BORROW_LIMIT: 5,
-        MAX_RENEWAL_LIMIT: 2,
-        EXPIRYDATE: 15,
         CATEGORIES: allCategories,
       },
     });
@@ -124,10 +122,11 @@ async function UpdateVariables() {
 
 async function main() {
   await SeedBook();
-  UpdateVariables().then(() => console.log(`Variables Updated Successfully`));
+  await UpdateVariables()
 }
 
 main()
+  .then(() => console.log("✅ Books Added Successfully"))
   .catch((e) => console.log(`Seeding Error`, e))
   .finally(async () => {
     prisma.$disconnect();

@@ -7,7 +7,7 @@
 import prisma from '../../lib/prisma.js';
 import { sendEmail } from './emailConfig.js';
 import { generateEmailTemplate } from './emailTemplate.js';
-import { reminderQueue, verificationEmailQueue, welcomeQueue } from '../bullMQ/queue.js';
+import { emailQueue } from '../bullMQ/queue.js';
 
 // Configuration constants
 const REMINDER_WINDOW = 2 * 24 * 60 * 60 * 1000; // 2 days
@@ -20,27 +20,6 @@ const CRON_SCHEDULE =
 
 const EMAIL_BATCH_SIZE = 30;
 
-// will be used later
-export const events = {
-  bookEvents: {
-    'book-due-reminder': 'book-due-reminder',
-    'add-book': 'add-book',
-    'edit-book': 'edit-book',
-    'add-book-stock': 'add-book-stock',
-    'delete-book': 'delete-book',
-    'borrow-book': 'borrow-book',
-    'return-book': 'return-book',
-    'renew-book': 'renew-book',
-  },
-  userEvents: {
-    'user-register': 'user-register',
-    'user-delete': 'user-delete',
-    'user-edit': 'user-edit',
-    'password-reset': 'password-reset',
-    'send-verification-email': 'send-verification-email',
-  },
-};
-
 /**
  * Handles scheduled book due reminders via cron job
  *
@@ -52,7 +31,7 @@ export const events = {
  *
  * The function is scheduled to run periodically using a cron job.
  */
-export async function handleScheduledBookReminders() {
+export async function findDueBookRemindersAndSendEmail() {
   try {
     console.log('⏱️ Searching for due soon books.....');
 
@@ -92,7 +71,6 @@ export async function handleScheduledBookReminders() {
         });
       }
     }
-
     // array to store username of member to whom the email were successfully sent
     const borrowedBooksWithEmailSent = [];
 
@@ -136,6 +114,22 @@ export async function handleScheduledBookReminders() {
   }
 }
 
+// Initialize scheduled tasks
+export async function runBackgroundReapeatableReminderQueue() {
+  await emailQueue.add(
+    'reminder-email',
+    {},
+    {
+      repeat: {
+        pattern: CRON_SCHEDULE,
+        tz: 'UTC',
+      },
+
+      jobId: 'daily-book-reminder', // Fixed ID to avoid duplicates
+    }
+  );
+}
+
 /**
  * Sends password reset notification email
  * @param {string} email - Recipient email
@@ -144,9 +138,8 @@ export async function handleScheduledBookReminders() {
  */
 export async function sendPasswordResetNotification(email, username, resetPasswordToken) {
   try {
-    const template = generateEmailTemplate(events.userEvents['password-reset'], {
-      email,
-      username,
+    const template = generateEmailTemplate('password-reset', {
+      email, username,
       resetPasswordToken,
     });
     await sendEmail(email, template.subject, template.html);
@@ -159,17 +152,17 @@ export async function sendPasswordResetNotification(email, username, resetPasswo
 /**
  * Sends welcome notification to new members
  * @param {string} email - Recipient email
- * @param {string} username - New member's display name
+ * @param {string} username - Member's username
+ * @param {string} role - Member's Role
  */
 
-export async function sendWelcomeNotification(email, username, password, role) {
+export async function sendWelcomeNotification(email, username, role) {
   try {
-    const template = generateEmailTemplate(events.userEvents['user-register'], {
+    const template = generateEmailTemplate('user-register', {
       username,
-      password,
       role,
     });
-    await welcomeQueue.add('welcome-email', {
+    await emailQueue.add('welcome-email', {
       to: email,
       subject: template.subject,
       message: template.html,
@@ -180,37 +173,181 @@ export async function sendWelcomeNotification(email, username, password, role) {
   }
 }
 
+/**
+ * Sends welcome notification to new members
+ * @param {string} email - Recipient email
+ * @param {string} username - Member's display name
+ * @param {string} role -  Member's role
+ * @param {string} verificationToken - New member's role
+ */
+
 export async function sendVerificationEmail(email, username, role, verificationToken) {
   try {
-    const template = generateEmailTemplate(events.userEvents['send-verification-email'], {
+    const template = generateEmailTemplate('send-verification-email', {
       email,
       username,
       role,
       verificationToken,
     });
-    await verificationEmailQueue.add('verification-email-queue', {
+    await emailQueue.add('verification-email', {
       to: email,
       subject: template.subject,
       message: template.html,
     });
+  } catch (error) {
+    console.error(`❌ Failed to send verification email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendPasswordResetLinkEmail(email, username, resetLink) {
+  try {
+    const template = generateEmailTemplate('send-password-reset-link', {
+      username,
+      resetLink,
+    });
+    await emailQueue.add('reset-password-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html,
+    });
+  } catch (error) {
+    console.error(`❌ Failed to send password reset link to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendUserActivationEmail(email, username) {
+  try {
+    const template = generateEmailTemplate('user-activated', {
+      username,
+    });
+    await emailQueue.add('user-activation-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html,
+    });
+  } catch (error) {
+    console.error(`❌ Failed to send user activation email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendUserDeactivationEmail(email, username) {
+  try {
+    const template = generateEmailTemplate('user-deactivated', {
+      username,
+    });
+    await emailQueue.add('user-deactivation-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html,
+    });
+  } catch (error) {
+    console.error(`❌ Failed to send user deactivation email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendUserDeletionEmail(email, username) {
+  try {
+    const template = generateEmailTemplate('user-deleted', {
+      username,
+    });
+    await emailQueue.add('user-deletion-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html,
+    });
+  } catch (error) {
+    console.error(`❌ Failed to send user deletion email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendBookAssignedEmail(email, username, bookName, dueDate) {
+  try {
+    const template = generateEmailTemplate('book-assigned', {
+      username,
+      bookName,
+      dueDate,
+    });
+    await emailQueue.add('book-assigned-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html,
+    });
+  } catch (error) {
+    console.error(`❌ Failed to send book assignment email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendBookRenewedEmail(email, username, bookName, dueDate) {
+  try {
+    const template = generateEmailTemplate('user-renewed', {
+      username,
+      bookName,
+      dueDate,
+    });
+    await emailQueue.add('book-renewed-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html,
+    });
+  } catch (error) {
+    console.error(`❌ Failed to send book renewal email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendBookReturnedEmail(email, username, bookNames) {
+  try {
+    const template = generateEmailTemplate('book-returned', {
+      username,
+      bookNames,
+    });
+    await emailQueue.add('book-returned-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html,
+    });
+  } catch (error) {
+    console.error(`❌ Failed to send book returned email to ${email}:`, error.message);
+    throw error;
+  }
+}
+
+export async function sendUserEditEmail(email, username) {
+  try {
+    const template = generateEmailTemplate('notify-user-edit', {
+      email,
+      username
+    })
+    await emailQueue.add('useredit-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html
+    })
   } catch (error) {
     console.error(`❌ Failed to send welcome email to ${email}:`, error.message);
     throw error;
   }
 }
 
-// Initialize scheduled tasks
-export async function runBackgroundReapeatableReminderQueue() {
-  await reminderQueue.add(
-    'daily-reminder-check',
-    {},
-    {
-      repeat: {
-        pattern: CRON_SCHEDULE,
-        tz: 'UTC', // Or your local timezone
-      },
-
-      jobId: 'daily-book-reminder', // Fixed ID to avoid duplicates
-    }
-  );
+export async function sendPasswordChangedEmail(email,username){
+  try {
+    const template = generateEmailTemplate('password-changed', {
+      email,
+      username
+    })
+    await emailQueue.add('password-changed-email', {
+      to: email,
+      subject: template.subject,
+      message: template.html
+    })
+  } catch (error) {
+    console.error(`❌ Failed to send welcome email to ${email}:`, error.message);
+    throw error;
+  }
 }

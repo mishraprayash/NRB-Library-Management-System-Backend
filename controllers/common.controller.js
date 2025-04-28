@@ -496,7 +496,7 @@ export const sendForgotPasswordLink = async (req, res) => {
     });
 
     try {
-      await sendPasswordResetNotification(email, userExist.username, resetPasswordToken);
+      await sendPasswordResetNotification(userExist.email,userExist.username, resetPasswordToken);
       // return res.redirect(`${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`)
 
       return sendResponse(res, 200, 'Password Reset Link Sent Successfully');

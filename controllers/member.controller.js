@@ -2,6 +2,8 @@ import prisma from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
 import { groupBooks, validateMember } from '../lib/helpers.js';
 import {
+  sendPasswordChangedEmail,
+  sendUserEditEmail,
   // sendVerificationEmail,
   sendWelcomeNotification,
 } from '../services/emailService/emailSender.js';
@@ -86,7 +88,7 @@ export const addMember = async (req, res) => {
       return res.status(400).json({ message: 'Error while adding member' });
     }
 
-    await sendWelcomeNotification(email, username, password, addedMember.role);
+    await sendWelcomeNotification(email, username, addedMember.role);
 
     return res.status(200).json({
       message: 'Member added successfully',
@@ -138,6 +140,7 @@ export const editMemberDetails = async (req, res) => {
       if (!updateMember) {
         return res.status(400).json({ message: 'Error while updating member details' });
       }
+      sendPasswordChangedEmail(updateMember.email, updateMember.username);
       return res.status(200).json({ message: 'Member Updated Successfully along with password' });
     } else {
       const updateMember = await prisma.member.update({
@@ -156,6 +159,7 @@ export const editMemberDetails = async (req, res) => {
       if (!updateMember) {
         return res.status(400).json({ message: 'Error while updating member' });
       }
+      sendUserEditEmail(updateMember.email, updateMember.username);
       return res.status(200).json({ message: 'Member Updated Successfully' });
     }
   } catch (error) {

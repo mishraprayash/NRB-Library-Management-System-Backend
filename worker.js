@@ -9,7 +9,7 @@ import express from 'express';
 import winston from 'winston';
 
 import { runBackgroundReapeatableReminderQueue } from './services/emailService/emailSender.js';
-import { runEmailWorkers } from './services/bullMQ/worker.js';
+import { startEmailWorker } from './services/bullMQ/worker.js';
 import { config } from 'dotenv';
 
 // Load environment variables
@@ -90,8 +90,7 @@ try {
     throw new Error('Email credentials not found in environment variables');
   }
 
-  // enabling workers
-  runEmailWorkers();
+  startEmailWorker()
 
   logger.info('Starting background reminder queue...');
 

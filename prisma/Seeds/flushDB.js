@@ -27,7 +27,7 @@ async function deleteVariables() {
   console.log('Deleted all variables.');
 }
 
-async function flushDB() {
+async function flushAll() {
   try {
     await deleteBorrowedBooks(); // Foreign key dependencies should go first
     await deleteLogs();
@@ -49,7 +49,7 @@ const command = args[0];
 (async () => {
   switch (command) {
     case 'all':
-      await flushDB();
+      await flushAll();
       break;
     case 'members':
       await deleteMembers();
