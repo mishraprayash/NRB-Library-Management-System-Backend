@@ -206,7 +206,6 @@ Fetching dashboard info for a member.
 
 export const getDashboardDetails = async (req, res) => {
   try {
-    // const [, EXPIRY_DATE] = await getDBConstraints(req, res);
 
     // Fetch all relevant data in a single query
     const borrowedBooks = await prisma.borrowedBook.findMany({
@@ -239,22 +238,21 @@ export const getDashboardDetails = async (req, res) => {
 
     borrowedBooks.forEach((borrow) => {
       if (!borrow.returned) {
-        currentlyBorrowedBooks.push(borrow);
         if (borrow.expiryDate <= new Date()) {
           expiredBooks.push(borrow);
         }
+        else {
+          currentlyBorrowedBooks.push(borrow);
+        }
       }
     });
-
-    const groupedCurrentlyBorrowedBooks = groupBooks(currentlyBorrowedBooks);
-
     return res.status(200).json({
       message: 'Details Fetched Successfully',
       countOfTotalBorrowed,
       countOfCurrentlyBorrowedBooks: currentlyBorrowedBooks.length,
       countOfExpiredBooks: expiredBooks.length,
       expiredBooks,
-      currentlyBorrowedBooks: groupedCurrentlyBorrowedBooks,
+      currentlyBorrowedBooks
     });
   } catch (error) {
     throw error;
