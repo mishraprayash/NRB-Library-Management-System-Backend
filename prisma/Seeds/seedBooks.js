@@ -1,31 +1,39 @@
+import xlsx from 'xlsx';
 
-import xlsx from "xlsx";
+import prisma from '../../lib/prisma.js';
 
-import prisma from "../../lib/prisma.js";
-
-import { v4 as uuidv4 } from "uuid";
-
+import { v4 as uuidv4 } from 'uuid';
 
 function generateBookCode() {
   return uuidv4();
 }
 
 function isValidRow(row) {
-  const requiredFields = ['Book Name', 'Author Name', 'Publisher', 'Year', 'pages', 'Cost', 'Category'];
-  return requiredFields.every(field => row[field] !== undefined && row[field] !== null && row[field].toString().trim() !== '')
+  const requiredFields = [
+    'Book Name',
+    'Author Name',
+    'Publisher',
+    'Year',
+    'pages',
+    'Cost',
+    'Category',
+  ];
+  return requiredFields.every(
+    (field) =>
+      row[field] !== undefined && row[field] !== null && row[field].toString().trim() !== ''
+  );
 }
 
 function toTitleCase(str) {
-  return str
-    .toLowerCase()
-    .replace(/\b\w/g, char => char.toUpperCase());
+  return str.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 const allCategories = [];
 
 async function SeedBook() {
-
-  const workbook = xlsx.readFile('/Users/prayashmishra/nrb-internship/nrb-library-backend/prisma/Seeds/BookList.xls');
+  const workbook = xlsx.readFile(
+    '/Users/prayashmishra/nrb-internship/nrb-library-backend/prisma/Seeds/BookList.xls'
+  );
   const sheetName = workbook.SheetNames[0];
   const data = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
@@ -36,7 +44,6 @@ async function SeedBook() {
 
   let totalBooksCount = 0;
   let totalSuccess = 0;
-
 
   for (const row of data) {
     totalBooksCount++;
@@ -49,7 +56,7 @@ async function SeedBook() {
     const publishedYear = parseInt(row['Year']);
     const pages = parseInt(row['pages']);
     const category = row['Category'].toString().trim().toUpperCase();
-    let cost = Math.ceil(parseFloat(row['Cost']));
+    const cost = Math.ceil(parseFloat(row['Cost']));
 
     if (
       !bookName ||
@@ -67,13 +74,12 @@ async function SeedBook() {
       allCategories.push(category);
     }
 
-    const authors = authorsRaw.split('/').map(author => author.trim());
+    const authors = authorsRaw.split('/').map((author) => author.trim());
 
     let bookCode;
     if (seenBooks.has(bookName)) {
       bookCode = seenBooks.get(bookName);
-    }
-    else {
+    } else {
       bookCode = generateBookCode();
       seenBooks.set(bookName, bookCode);
     }
@@ -88,14 +94,13 @@ async function SeedBook() {
           bookCode,
           category,
           pages,
-          cost
-        }
-      })
+          cost,
+        },
+      });
       totalSuccess++;
     } catch (error) {
       console.error(`Failed to insert book: ${bookName}`, err);
     }
-
   }
   console.log(`${totalBooksCount} Total Books`);
   console.log(`${totalSuccess} added Successfully`);
@@ -109,8 +114,8 @@ async function UpdateVariables() {
         MAX_BORROW_LIMIT: 5,
         MAX_RENEWAL_LIMIT: 2,
         EXPIRYDATE: 15,
-        CATEGORIES: allCategories
-      }
+        CATEGORIES: allCategories,
+      },
     });
   } catch (error) {
     console.log(error);
@@ -122,9 +127,8 @@ async function main() {
   UpdateVariables().then(() => console.log(`Variables Updated Successfully`));
 }
 
-
 main()
-  .catch(e => console.log(`Seeding Error`, e))
+  .catch((e) => console.log(`Seeding Error`, e))
   .finally(async () => {
     prisma.$disconnect();
-  })
+  });

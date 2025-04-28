@@ -1,106 +1,105 @@
-import xlsx from "xlsx"
-import prisma from "../../lib/prisma.js"
-import crypto from "crypto"
-import bcrypt from "bcryptjs";
+import xlsx from 'xlsx';
+import prisma from '../../lib/prisma.js';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
-import memberJson from './employee_info.json' with {type: 'json'}
+import memberJson from './employee_info.json' with { type: 'json' };
 
-
-
-function generateRandomEmail() {
-    return crypto.randomBytes(10).toString('base64').slice(0, 10) + "@testemail.com"
+function generateRandomEmail(length) {
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const bytes = crypto.randomBytes(length);
+  let result = '';
+  for (let i = 0; i < bytes.length; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result + '@testmail.com';
 }
 
 // for production
 async function seedMemberWithOriginalEmail() {
-    try {
-        for (const info of memberJson) {
-            const username = info['EmpID']
-            const name = info['EmpName']
-            const phoneNo = info['Mobile'].toString()
-            const password = info['EmpID']
-            const designation = info['Designation']
-            let role = info['Role ']
-            // real email address
-            const email = info['Email']
-            if (role === 'Super Admin')
-                role = "SUPERADMIN"
-            else if (role === "Admin")
-                role = "ADMIN"
-            else role = "MEMBER"
-            const hashsedPassword = await bcrypt.hash(password, 10)
-            const memberData = {
-                username,
-                name,
-                phoneNo,
-                password: hashsedPassword,
-                designation,
-                role,
-                email
-            }
-            await prisma.member.create({
-                data: memberData
-            })
-        }
-    } catch (error) {
-        console.log(error);
-        throw error
+  try {
+    for (const info of memberJson) {
+      const username = info['EmpID'].toString().trim();
+      const name = info['EmpName'].toString().trim();
+      const phoneNo = info['Mobile'].toString().trim();
+      const password = info['EmpID'].toString().trim();
+      const designation = info['Designation'].toString().trim();
+      let role = info['Role '].toString().trim();
+      // real email address
+      const email = info['Email'].toString().trim();
+      if (role === 'Super Admin') role = 'SUPERADMIN';
+      else if (role === 'Admin') role = 'ADMIN';
+      else role = 'MEMBER';
+      const hashsedPassword = await bcrypt.hash(password, 10);
+      const memberData = {
+        username,
+        name,
+        phoneNo,
+        password: hashsedPassword,
+        designation,
+        role,
+        email,
+      };
+      await prisma.member.create({
+        data: memberData,
+      });
     }
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
 }
 
 // for testing
 async function seedMembersWithDummyEmail() {
-    try {
-        await prisma.member.deleteMany();
-        for (const info of memberJson) {
-            const username = info['EmpID']
-            const name = info['EmpName']
-            const phoneNo = info['Mobile'].toString()
-            const password = info['EmpID']
-            const designation = info['Designation']
-            let role = info['Role ']
-            const email = generateRandomEmail();
-            if (role === 'Super Admin')
-                role = "SUPERADMIN"
-            else if (role === "Admin")
-                role = "ADMIN"
-            else role = "MEMBER"
-            const hashsedPassword = await bcrypt.hash(password, 10)
-            const memberData = {
-                username,
-                name,
-                phoneNo,
-                password: hashsedPassword,
-                designation,
-                role,
-                email
-            }
-            await prisma.member.create({
-                data: memberData
-            })
-        }
-
-    } catch (error) {
-        console.log(error);
-        throw error
+  try {
+    let memberCount = 0;
+    await prisma.member.deleteMany();
+    for (const info of memberJson) {
+      const username = info['EmpID'];
+      const name = info['EmpName'];
+      const phoneNo = info['Mobile'].toString().trim();
+      const password = info['EmpID'];
+      const designation = info['Designation'];
+      let role = info['Role '];
+      const email = generateRandomEmail(10);
+      if (role === 'Super Admin') role = 'SUPERADMIN';
+      else if (role === 'Admin') role = 'ADMIN';
+      else role = 'MEMBER';
+      const hashsedPassword = await bcrypt.hash(password, 10);
+      const memberData = {
+        username,
+        name,
+        phoneNo,
+        password: hashsedPassword,
+        designation,
+        role,
+        email,
+      };
+      await prisma.member.create({
+        data: memberData,
+      });
+      memberCount++;
     }
+
+    console.log("MemberCount", memberCount);
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
 }
 
 async function main() {
-    seedMembersWithDummyEmail();
+  seedMembersWithDummyEmail();
 }
 
 main().catch((error) => {
-    console.log(error);
-})
-
-
-
+  console.log(error);
+});
 
 /*
 Extracting the complete information from the excel file
 */
-
 
 // import xlsx from "xlsx"
 // import fs from 'node:fs'

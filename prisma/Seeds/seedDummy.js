@@ -16,8 +16,8 @@ async function main() {
       MAX_BORROW_LIMIT: 5,
       MAX_RENEWAL_LIMIT: 2,
       EXPIRYDATE: 15,
-      CATEGORIES: ['FICTION', 'NON-FICTION', 'SCIENCE', 'HISTORY', 'BIOGRAPHY']
-    }
+      CATEGORIES: ['FICTION', 'NON-FICTION', 'SCIENCE', 'HISTORY', 'BIOGRAPHY'],
+    },
   });
 
   const password = await bcrypt.hash('prayash', 10);
@@ -30,8 +30,8 @@ async function main() {
       password,
       phoneNo: '1234567890',
       role: 'SUPERADMIN',
-      designation: 'DIRECTOR'
-    }
+      designation: 'DIRECTOR',
+    },
   });
 
   const admin = await prisma.member.create({
@@ -42,15 +42,29 @@ async function main() {
       password,
       phoneNo: '2345678901',
       role: 'ADMIN',
-      designation: "DEPUTY DIRECTOR"
-    }
+      designation: 'DEPUTY DIRECTOR',
+    },
   });
 
   const memberNames = [
-    'John Doe', 'Jane Smith', 'Alice Johnson', 'Bob Wilson', 'Emma Davis',
-    'Liam Brown', 'Olivia Garcia', 'Noah Martinez', 'Ava Robinson', 'Elijah Clark',
-    'Sophia Lewis', 'William Lee', 'Isabella Walker', 'James Hall', 'Mia Allen',
-    'Benjamin Young', 'Charlotte Hernandez', 'Lucas King'
+    'John Doe',
+    'Jane Smith',
+    'Alice Johnson',
+    'Bob Wilson',
+    'Emma Davis',
+    'Liam Brown',
+    'Olivia Garcia',
+    'Noah Martinez',
+    'Ava Robinson',
+    'Elijah Clark',
+    'Sophia Lewis',
+    'William Lee',
+    'Isabella Walker',
+    'James Hall',
+    'Mia Allen',
+    'Benjamin Young',
+    'Charlotte Hernandez',
+    'Lucas King',
   ];
 
   const members = await Promise.all(
@@ -63,8 +77,8 @@ async function main() {
           password,
           phoneNo: `98${(10000000 + index).toString()}`,
           role: 'MEMBER',
-          designation: "ASSISTANT"
-        }
+          designation: 'ASSISTANT',
+        },
       })
     )
   );
@@ -78,12 +92,10 @@ async function main() {
     cost: 10 + i,
     category: variables.CATEGORIES[i % variables.CATEGORIES.length],
     available: true,
-    bookCode: uuidv4()
+    bookCode: uuidv4(),
   }));
 
-  const books = await Promise.all(
-    bookTitles.map((book) => prisma.book.create({ data: book }))
-  );
+  const books = await Promise.all(bookTitles.map((book) => prisma.book.create({ data: book })));
 
   const borrowedBooks = await Promise.all(
     Array.from({ length: 10 }).map((_, i) =>
@@ -94,8 +106,8 @@ async function main() {
           borrowedDate: new Date(),
           expiryDate: new Date(Date.now() + variables.EXPIRYDATE * 24 * 60 * 60 * 1000),
           returned: false,
-          renewalCount: 0
-        }
+          renewalCount: 0,
+        },
       })
     )
   );
@@ -109,7 +121,7 @@ async function main() {
         action: 'SYSTEM_INITIALIZED',
         description: 'System initialized with seed data',
         module: 'SEED',
-        time: new Date()
+        time: new Date(),
       },
       {
         level: 'INFO',
@@ -118,9 +130,9 @@ async function main() {
         action: 'BOOK_BULK_ADDED',
         description: 'Added 50 sample books',
         module: 'BOOK',
-        time: new Date()
-      }
-    ]
+        time: new Date(),
+      },
+    ],
   });
 
   console.log('✅ Seed data created successfully!');
@@ -134,4 +146,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

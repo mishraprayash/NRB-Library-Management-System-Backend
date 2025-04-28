@@ -1,12 +1,12 @@
 // Define theme colors for easier maintenance and branding changes
 const theme = {
-    primary: '#3498db',
-    secondary: '#2c3e50',
-    background: '#f5f5f5',
-    text: '#333333',
-    muted: '#7f8c8d'
+  primary: '#3498db',
+  secondary: '#2c3e50',
+  background: '#f5f5f5',
+  text: '#333333',
+  muted: '#7f8c8d',
 };
-  
+
 // Base email styles used across all templates
 export const baseStyles = `
       <style>
@@ -69,4 +69,3 @@ export const baseStyles = `
           }
       </style>
 `;
-  

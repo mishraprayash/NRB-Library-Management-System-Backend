@@ -3,15 +3,13 @@
  * Handles user authentication and role-based access control
  */
 
-import jwt from "jsonwebtoken";
-import pkg from 'jsonwebtoken';
-import { deleteCookie } from "../lib/helpers.js";
+import jwt from 'jsonwebtoken';
+import pkg from "jsonwebtoken";
 const { JsonWebTokenError } = pkg;
 
 // Helper function to send authentication errors
-const sendAuthError = (res, status, message, details = null) => {
-  deleteCookie(res);
-  return res.redirect(`${process.env.FRONTEND_URI}/login`);
+const sendAuthError = (res, status, message) => {
+  return res.status(status).json({ message });
 };
 
 // Get token from cookies
@@ -25,7 +23,7 @@ const verifyToken = async (req, res, next) => {
     const { accessToken } = getTokenFromCookie(req);
 
     if (!accessToken) {
-      return sendAuthError(res, 401, "Authentication required", "No token provided");
+      return sendAuthError(res, 401, 'Authentication required', 'No token provided');
     }
 
     const decodedToken = jwt.verify(accessToken, process.env.JWT_SECRET);
@@ -33,9 +31,9 @@ const verifyToken = async (req, res, next) => {
     next();
   } catch (error) {
     if (error instanceof JsonWebTokenError) {
-      return sendAuthError(res, 401, "Authentication failed", "Invalid or expired token");
+      return sendAuthError(res, 401, 'Authentication failed', 'Invalid or expired token');
     }
-    return sendAuthError(res, 500, "Internal server error", "Error during authentication");
+    return sendAuthError(res, 500, 'Internal server error', 'Error during authentication');
   }
 };
 
@@ -49,17 +47,16 @@ const createRoleMiddleware = (allowedRoles, errorMessage) => {
   return (req, res, next) => {
     try {
       if (!req.user) {
-        return sendAuthError(res, 401, "Authentication required", "User is not authenticated");
+        return sendAuthError(res, 401, 'Authentication required', 'User is not authenticated');
       }
 
       if (checkRole(req.user.role, allowedRoles)) {
         next();
       } else {
-        return sendAuthError(res, 403, "Access denied", errorMessage);
+        return sendAuthError(res, 403, 'Access denied', errorMessage);
       }
-    } catch (error) {
-      console.error("Role validation error:", error);
-      return sendAuthError(res, 500, "Internal server error", "Error validating permissions");
+    } catch {
+      return sendAuthError(res, 500, 'Internal server error', 'Error validating permissions');
     }
   };
 };
@@ -68,16 +65,16 @@ const createRoleMiddleware = (allowedRoles, errorMessage) => {
 export const isCookieAuthorized = verifyToken;
 
 export const admin_superAdmin_both = createRoleMiddleware(
-  ["ADMIN", "SUPERADMIN"],
-  "This operation requires administrator privileges"
+  ['ADMIN', 'SUPERADMIN'],
+  'This operation requires administrator privileges'
 );
 
 export const super_admin_only = createRoleMiddleware(
-  ["SUPERADMIN"],
-  "This operation requires superadmin privileges"
+  ['SUPERADMIN'],
+  'This operation requires superadmin privileges'
 );
 
 export const member_only = createRoleMiddleware(
-  ["MEMBER"],
-  "This operation is only available to library members"
+  ['MEMBER'],
+  'This operation is only available to library members'
 );

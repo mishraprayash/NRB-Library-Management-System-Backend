@@ -1,7 +1,7 @@
-import prisma from "../lib/prisma.js";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { sendWelcomeNotification } from "./emailService/emailSender.js";
+import prisma from '../lib/prisma.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { sendWelcomeNotification } from './emailService/emailSender.js';
 
 const SALT_ROUNDS = 10;
 
@@ -11,14 +11,14 @@ const SALT_ROUNDS = 10;
  * @returns {Promise<Object|null>} Member object or null if not found
  */
 export const getMemberByUsername = async (username) => {
-    try {
-        return await prisma.member.findUnique({
-            where: { username }
-        });
-    } catch (error) {
-        console.error('Error finding member by username:', error);
-        throw error;
-    }
+  try {
+    return await prisma.member.findUnique({
+      where: { username },
+    });
+  } catch (error) {
+    console.error('Error finding member by username:', error);
+    throw error;
+  }
 };
 
 /**
@@ -28,12 +28,12 @@ export const getMemberByUsername = async (username) => {
  * @returns {Promise<boolean>} True if passwords match
  */
 export const verifyPassword = async (password, hashedPassword) => {
-    try {
-        return await bcrypt.compare(password, hashedPassword);
-    } catch (error) {
-        console.error('Error verifying password:', error);
-        throw error;
-    }
+  try {
+    return await bcrypt.compare(password, hashedPassword);
+  } catch (error) {
+    console.error('Error verifying password:', error);
+    throw error;
+  }
 };
 
 /**
@@ -42,12 +42,12 @@ export const verifyPassword = async (password, hashedPassword) => {
  * @returns {Promise<string>} Hashed password
  */
 export const generateHashedPassword = async (password) => {
-    try {
-        return await bcrypt.hash(password, SALT_ROUNDS);
-    } catch (error) {
-        console.error('Error generating hashed password:', error);
-        throw error;
-    }
+  try {
+    return await bcrypt.hash(password, SALT_ROUNDS);
+  } catch (error) {
+    console.error('Error generating hashed password:', error);
+    throw error;
+  }
 };
 
 /**
@@ -56,38 +56,38 @@ export const generateHashedPassword = async (password) => {
  * @returns {string} JWT token
  */
 export const generateAccessToken = (user) => {
-    try {
-        const payload = {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role
-        };
-        return jwt.sign(payload, process.env.JWT_SECRET, {
-            expiresIn: process.env.JWT_LIFETIME
-        });
-    } catch (error) {
-        console.error('Error generating JWT token:', error);
-        throw error;
-    }
+  try {
+    const payload = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    };
+    return jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_LIFETIME,
+    });
+  } catch (error) {
+    console.error('Error generating JWT token:', error);
+    throw error;
+  }
 };
 
 export const generateRefreshToken = (user) => {
-    try {
-        const payload = {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            role: user.role
-        };
-        return jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {
-            expiresIn: process.env.REFRESH_TOKEN_LIFETIME || '90d' // fallback to 7 days
-        });
-    } catch (error) {
-        console.error('Error generating refresh token:', error);
-        throw error;
-    }
-}
+  try {
+    const payload = {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+    };
+    return jwt.sign(payload, process.env.REFRESH_TOKEN_SECRET, {
+      expiresIn: process.env.REFRESH_TOKEN_LIFETIME || '90d', // fallback to 7 days
+    });
+  } catch (error) {
+    console.error('Error generating refresh token:', error);
+    throw error;
+  }
+};
 
 /**
  * Create a new admin or superadmin user
@@ -97,57 +97,61 @@ export const generateRefreshToken = (user) => {
  * @throws {Object} If user already exists or database operation fails
  */
 export const createMember = async (userData, role) => {
-    try {
-        // Check for existing user with same username or duplicate role (for admin/superadmin)
-        const existingUser = await prisma.member.findUnique({
-            where: {
-                username: userData.username
-            },
-            select: { username: true, role: true }
-        });
+  try {
+    // Check for existing user with same username or duplicate role (for admin/superadmin)
+    const existingUser = await prisma.member.findUnique({
+      where: {
+        username: userData.username,
+      },
+      select: { username: true, role: true },
+    });
 
-        if (existingUser) {
-            // Return an object with error details instead of throwing
-            return {
-                error: true,
-                status: 409,
-                message:"Username already exists"
-            };
-        }
+    if (existingUser) {
+      // Return an object with error details instead of throwing
+      return {
+        error: true,
+        status: 409,
+        message: 'Username already exists',
+      };
+    }
 
-        // Hash the password
-        userData.password = await generateHashedPassword(userData.password);
+    // Hash the password
+    userData.password = await generateHashedPassword(userData.password);
 
-        // Create the new member
-        const newMember = await prisma.member.create({
-            data: {
-                ...userData,
-                role
-            },
-            select: {
-                id: true,
-                username: true,
-                email: true,
-                role: true,
-                designation:true,
-                createdAt: true
-            }
-        });
+    // Create the new member
+    const newMember = await prisma.member.create({
+      data: {
+        ...userData,
+        role,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        designation: true,
+        createdAt: true,
+      },
+    });
 
-        /* 
+    /* 
         Fire and Forget. Call the asynchronous function and doesnot care if it fails or succeed.
         Typically used in while sending emails which are low priority-tasks.
         But we can use .catch to log error if any occurs.
         */
-        sendWelcomeNotification(newMember.email, newMember.username, userData.password, newMember.role)
-            .catch((error) => {
-                console.log(`Error while sending to ${newMember.email}`);
-            });
+    sendWelcomeNotification(
+      newMember.email,
+      newMember.username,
+      userData.password,
+      newMember.role
+    ).catch((error) => {
+      console.log(`Error while sending to ${newMember.email}`);
+    });
 
-        return newMember;
-    } catch (error) {
-        // Only throw unexpected errors to the global handler
-        console.error('Error creating member:', error);
-        throw error;
-    }
+    return newMember;
+  } catch (error) {
+    // Only throw unexpected errors to the global handler
+    console.error('Error creating member:', error);
+    throw error;
+  }
 };

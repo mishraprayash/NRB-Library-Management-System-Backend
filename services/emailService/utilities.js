@@ -4,13 +4,13 @@
  * @returns {string} Plain text version of the email
  */
 export function generatePlainTextVersion(html) {
-    return html
-        .replace(/<style[^>]*>.*<\/style>/gs, '')
-        .replace(/<[^>]+>/g, '')
-        .replace(/\n\s+/g, '\n')
-        .trim();
+  return html
+    .replace(/<style[^>]*>.*<\/style>/gs, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\n\s+/g, '\n')
+    .trim();
 }
-  
+
 /**
  * Formats a date according to the specified language
  * @param {string|Date} dateString - The date to format
@@ -18,12 +18,12 @@ export function generatePlainTextVersion(html) {
  * @returns {string} Localized date string
  */
 export function formatLocalizedDate(dateString, lang) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString(lang === 'ne' ? 'ne-NP' : 'en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
+  const date = new Date(dateString);
+  return date.toLocaleDateString(lang === 'ne' ? 'ne-NP' : 'en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
 }
 
 /**
@@ -32,11 +32,11 @@ export function formatLocalizedDate(dateString, lang) {
  * @returns {string} Sanitized string
  */
 export function sanitizeInput(input) {
-    if (typeof input !== 'string') return '';
-    return input
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+  if (typeof input !== 'string') return '';
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }

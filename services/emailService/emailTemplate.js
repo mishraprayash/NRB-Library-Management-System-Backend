@@ -1,13 +1,12 @@
 /**
  * Email Template Manager
- * 
+ *
  * Handles generation of HTML and plain text email templates with multilingual support.
  * Supports multiple notification types including book reminders, password resets, and welcome emails.
  */
 
-import { baseStyles } from "./template-style.js";
-import { sanitizeInput, formatLocalizedDate } from "./utilities.js";
-
+import { baseStyles } from './template-style.js';
+import { sanitizeInput, formatLocalizedDate } from './utilities.js';
 
 /**
  * Generates email templates for different notification types
@@ -16,29 +15,29 @@ import { sanitizeInput, formatLocalizedDate } from "./utilities.js";
  * @returns {Object} Email template with subject, HTML and text versions in multiple languages
  */
 export function generateEmailTemplate(eventType, data) {
-    if (!data || typeof data !== 'object') {
-        throw new Error('Invalid template data - must be an object');
-    }
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid template data - must be an object');
+  }
 
-    const templates = {
-        subject: {
-            'book-due-reminder': '📚 Library Book Due Reminder',
-            'password-reset': '🔑 Password Reset Request',
-            'user-register': '🎉 Welcome to NRB Library',
-            'send-verification-email': '✅ Verify your Email',
-            'send-password-reset-link': 'Reset your password'
-        }
-    };
+  const templates = {
+    subject: {
+      'book-due-reminder': '📚 Library Book Due Reminder',
+      'password-reset': '🔑 Password Reset Request',
+      'user-register': '🎉 Welcome to NRB Library',
+      'send-verification-email': '✅ Verify your Email',
+      'send-password-reset-link': 'Reset your password',
+    },
+  };
 
-    // Verify template type is supported
-    if (!templates.subject[eventType]) {
-        throw new Error(`Unsupported email template type: ${eventType}`);
-    }
+  // Verify template type is supported
+  if (!templates.subject[eventType]) {
+    throw new Error(`Unsupported email template type: ${eventType}`);
+  }
 
-    return {
-        subject: templates.subject[eventType],
-        html: generateHtmlTemplate(eventType, data)
-    };
+  return {
+    subject: templates.subject[eventType],
+    html: generateHtmlTemplate(eventType, data),
+  };
 }
 
 /**
@@ -49,20 +48,20 @@ export function generateEmailTemplate(eventType, data) {
  * @returns {string} Generated HTML content
  */
 function generateHtmlTemplate(eventType, data, lang = 'en') {
-    switch (eventType) {
-        case 'book-due-reminder':
-            return generateDueReminder(data, lang);
-        case 'password-reset':
-            return generatePasswordReset(data, lang);
-        case 'user-register':
-            return generateRegistration(data, lang);
-        case 'send-verification-email':
-            return generateVerificationEmail(data, lang);
-        case 'send-password-reset-link':
-            return generateResetPasswordEmail(data, lang);
-        default:
-            throw new Error(`Unsupported email template type: ${eventType}`);
-    }
+  switch (eventType) {
+    case 'book-due-reminder':
+      return generateDueReminder(data, lang);
+    case 'password-reset':
+      return generatePasswordReset(data, lang);
+    case 'user-register':
+      return generateRegistration(data, lang);
+    case 'send-verification-email':
+      return generateVerificationEmail(data, lang);
+    case 'send-password-reset-link':
+      return generateResetPasswordEmail(data, lang);
+    default:
+      throw new Error(`Unsupported email template type: ${eventType}`);
+  }
 }
 
 /**
@@ -72,28 +71,31 @@ function generateHtmlTemplate(eventType, data, lang = 'en') {
  * @returns {string} HTML template
  */
 function generateDueReminder(data, lang = 'en') {
-    const { username, books } = data;
-    if (!username || !books) {
-        throw new Error('Missing required fields for due reminder template');
-    }
+  const { username, books } = data;
+  if (!username || !books) {
+    throw new Error('Missing required fields for due reminder template');
+  }
 
-    const safeUsername = sanitizeInput(username);
+  const safeUsername = sanitizeInput(username);
 
-    const translations = {
-        en: {
-            greeting: `Dear ${safeUsername},`,
-            reminder: 'This is a friendly reminder that the following book(s) are due within 24 hours:',
-            returnInfo: 'Please return them on time to avoid late fees.',
-            footer: 'Best regards, NRB Library Team'
-        }
-    };
+  const translations = {
+    en: {
+      greeting: `Dear ${safeUsername},`,
+      reminder: 'This is a friendly reminder that the following book(s) are due within 24 hours:',
+      returnInfo: 'Please return them on time to avoid late fees.',
+      footer: 'Best regards, NRB Library Team',
+    },
+  };
 
-    const t = translations[lang];
-    const bookList = books.map(book =>
+  const t = translations[lang];
+  const bookList = books
+    .map(
+      (book) =>
         `<li><strong>${sanitizeInput(book.name)}</strong> (${lang === 'ne' ? 'अन्तिम मिति' : 'Due by'}: ${formatLocalizedDate(book.expiryDate, lang)})</li>`
-    ).join('');
+    )
+    .join('');
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
     <html lang="${lang}">
     <head>
         <meta charset="UTF-8">
@@ -121,27 +123,28 @@ function generateDueReminder(data, lang = 'en') {
  * @returns {string} HTML template
  */
 function generatePasswordReset(data, lang = 'en') {
-    const { username, resetPasswordToken } = data;
-    if (!username || !resetPasswordToken) throw new Error('Missing resetLink for password reset template');
+  const { username, resetPasswordToken } = data;
+  if (!username || !resetPasswordToken)
+    throw new Error('Missing resetLink for password reset template');
 
-    const passwordResetLink = `${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`;
+  const passwordResetLink = `${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`;
 
-    const safeUsername = username ? sanitizeInput(username) : ''
+  const safeUsername = username ? sanitizeInput(username) : '';
 
-    const translations = {
-        en: {
-            title: 'Password Reset Request',
-            greeting: safeUsername ? `Hello ${safeUsername},` : 'Hello,',
-            instructions: 'Click the button below to reset your password:',
-            buttonText: 'Reset Password',
-            expiryNote: 'This link expires in 5 minutes.',
-            footer: 'If you didn\'t request this, please ignore this email.'
-        }
-    };
+  const translations = {
+    en: {
+      title: 'Password Reset Request',
+      greeting: safeUsername ? `Hello ${safeUsername},` : 'Hello,',
+      instructions: 'Click the button below to reset your password:',
+      buttonText: 'Reset Password',
+      expiryNote: 'This link expires in 5 minutes.',
+      footer: "If you didn't request this, please ignore this email.",
+    },
+  };
 
-    const t = translations[lang];
+  const t = translations[lang];
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
     <meta charset="UTF-8">
@@ -174,36 +177,42 @@ function generatePasswordReset(data, lang = 'en') {
  * @returns {string} HTML template
  */
 function generateRegistration(data, lang = 'en') {
-    const { username, role } = data;
-    if (!username) throw new Error('Missing username for registration template');
+  const { username, role } = data;
+  if (!username) throw new Error('Missing username for registration template');
 
-    const safeUsername = sanitizeInput(username);
+  const safeUsername = sanitizeInput(username);
 
-    const translations = {
-        en: {
-            title: 'Welcome to NRB Library',
-            welcome: `Welcome ${safeUsername}!`,
-            content: role === 'ADMIN' ? 'Hey, you are now an admin for NRB Library.' : 'Congratulations, you are now a member in the NRB Library.',
-            instructions: 'You can now:',
-            features: role === "ADMIN" ? [
-                'Add a new book',
-                'Add a new memeber',
-                'Assign a book to a member',
-                'Renew/Return the book for a member'
-            ] : [
-                'Browse our online catalog',
-                'Reserve books up to 7 days in advance',
-                'Renew books online',
-                'Track your borrowing history'
+  const translations = {
+    en: {
+      title: 'Welcome to NRB Library',
+      welcome: `Welcome ${safeUsername}!`,
+      content:
+        role === 'ADMIN'
+          ? 'Hey, you are now an admin for NRB Library.'
+          : 'Congratulations, you are now a member in the NRB Library.',
+      instructions: 'You can now:',
+      features:
+        role === 'ADMIN'
+          ? [
+              'Add a new book',
+              'Add a new memeber',
+              'Assign a book to a member',
+              'Renew/Return the book for a member',
+            ]
+          : [
+              'Browse our online catalog',
+              'Reserve books up to 7 days in advance',
+              'Renew books online',
+              'Track your borrowing history',
             ],
-            footer: 'Happy reading!'
-        }
-    };
+      footer: 'Happy reading!',
+    },
+  };
 
-    const t = translations[lang];
-    const featuresList = t.features.map(f => `<li>${f}</li>`).join('');
+  const t = translations[lang];
+  const featuresList = t.features.map((f) => `<li>${f}</li>`).join('');
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
     <meta charset="UTF-8">
@@ -227,24 +236,24 @@ function generateRegistration(data, lang = 'en') {
 }
 
 function generateVerificationEmail(data, lang = 'en') {
-    const { username, verificationToken, role } = data;
-    if (!username) throw new Error('Missing credentials for sending email');
+  const { username, verificationToken, role } = data;
+  if (!username) throw new Error('Missing credentials for sending email');
 
-    const verificationLink = `${process.env.API_BASE_URI}/common/verifyemail?token=${verificationToken}`
+  const verificationLink = `${process.env.API_BASE_URI}/common/verifyemail?token=${verificationToken}`;
 
-    const safeUsername = sanitizeInput(username);
-    const translations = {
-        en: {
-            title: 'VERIFY YOUR EMAIL ADDRESS',
-            welcome: `Welcome ${safeUsername}!`,
-            content: 'Please verify your email through the given link.',
-            footer: 'Happy reading!'
-        }
-    }
+  const safeUsername = sanitizeInput(username);
+  const translations = {
+    en: {
+      title: 'VERIFY YOUR EMAIL ADDRESS',
+      welcome: `Welcome ${safeUsername}!`,
+      content: 'Please verify your email through the given link.',
+      footer: 'Happy reading!',
+    },
+  };
 
-    const t = translations[lang];
+  const t = translations[lang];
 
-    return `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="${lang}">
 <head>
     <meta charset="UTF-8">
@@ -267,5 +276,4 @@ function generateVerificationEmail(data, lang = 'en') {
     </div>
 </body>
 </html>`;
-
 }

@@ -1,73 +1,62 @@
-"use strict";
+'use strict';
 
 /**
  * Library Management System - Worker Service
- * 
+ *
  * Handles background jobs and email processing
  */
-import express from "express";
+import express from 'express';
 import winston from 'winston';
 
-import { runBackgroundReapeatableReminderQueue } from "./services/emailService/emailSender.js"
-import { runEmailWorkers } from "./services/bullMQ/worker.js";
-import { config } from "dotenv";
+import { runBackgroundReapeatableReminderQueue } from './services/emailService/emailSender.js';
+import { runEmailWorkers } from './services/bullMQ/worker.js';
+import { config } from 'dotenv';
 
 // Load environment variables
 config();
 
 // Validate required environment variables
-const requiredEnvVars = [
-  'EMAIL_AUTH_USER',
-  'EMAIL_AUTH_PASSWORD'
-];
-
+const requiredEnvVars = ['EMAIL_AUTH_USER', 'EMAIL_AUTH_PASSWORD'];
 
 // Constants
 const PORT = process.env.WORKER_PORT || 5001;
-const NODE_ENV = process.env.NODE_ENV || "development";
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
 // Configure Winston logger
 const logger = winston.createLogger({
   level: NODE_ENV === 'production' ? 'info' : 'debug',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
+  format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
   transports: [
     new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      )
+      format: winston.format.combine(winston.format.colorize(), winston.format.simple()),
     }),
-    new winston.transports.File({ 
-      filename: 'logs/worker-error.log', 
-      level: 'error' 
+    new winston.transports.File({
+      filename: 'logs/worker-error.log',
+      level: 'error',
     }),
-    new winston.transports.File({ 
-      filename: 'logs/worker-combined.log' 
-    })
-  ]
+    new winston.transports.File({
+      filename: 'logs/worker-combined.log',
+    }),
+  ],
 });
 
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
 
 if (missingEnvVars.length > 0) {
   logger.error('Missing required environment variables:', missingEnvVars);
   process.exit(1);
 }
 
-
 // Initialize Express app for health checks
 const app = express();
 
 // Health check endpoint
 app.get('/worker/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'healthy',
     service: 'worker',
     environment: NODE_ENV,
-    timestamp: new Date()
+    timestamp: new Date(),
   });
 });
 
@@ -83,7 +72,7 @@ const shutdownGracefully = () => {
     logger.info('Worker service closed connections and exiting');
     process.exit(0);
   });
-  
+
   // Force shutdown after 10 seconds
   setTimeout(() => {
     logger.error('Could not close connections, forcefully shutting down');
@@ -91,8 +80,8 @@ const shutdownGracefully = () => {
   }, 10000);
 };
 
-process.on("SIGTERM", shutdownGracefully);
-process.on("SIGINT", shutdownGracefully);
+process.on('SIGTERM', shutdownGracefully);
+process.on('SIGINT', shutdownGracefully);
 
 // Start workers
 try {
@@ -103,14 +92,14 @@ try {
 
   // enabling workers
   runEmailWorkers();
-  
+
   logger.info('Starting background reminder queue...');
 
   // sets up a cron jobs for trigger reminderEmailWorker on a scheduled time
   runBackgroundReapeatableReminderQueue();
-  
+
   logger.info('All workers started successfully');
 } catch (error) {
   logger.error('Error starting workers:', error);
   process.exit(1);
-} 
+}
