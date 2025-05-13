@@ -6,7 +6,7 @@
  */
 
 import { baseStyles } from './template-style.js';
-import { sanitizeInput, formatLocalizedDate } from './utilities.js';
+import { sanitizeInput, formatLocalizedDate, convertToNepaliTime } from './utilities.js';
 
 /**
  * Generates email templates for different notification types
@@ -30,9 +30,11 @@ export function generateEmailTemplate(eventType, data) {
       'password-changed': '🔑 Password Changed',
       'book-assigned': 'Book Issued Notification',
       'book-returned': 'Book(s) Returned Notification',
+      'book-renewed': 'Book(s) Renewed Notification',
       'user-activated': 'User Activation Notification',
       'user-deactivated': 'User Deactiavtion Notification',
-      'user-deleted': 'User Deletion Notification'
+      'user-deleted': 'User Deletion Notification',
+      'role-changed': 'Role Updated',
     },
   };
 
@@ -79,8 +81,10 @@ function generateHtmlTemplate(eventType, data) {
       return generateBookAssigned(data);
     case 'book-returned':
       return generateBookReturned(data);
-    case 'user-renewed':
+    case 'book-renewed':
       return generateBookRenewed(data);
+    case 'role-changed':
+      return generateRoleChanged(data);
     default:
       throw new Error(`Unsupported email template type: ${eventType}`);
   }
@@ -300,7 +304,6 @@ function generateVerificationEmail(data, lang = 'en') {
 </html>`;
 }
 
-
 function generateNotifyUserEdit(data, lang = "en") {
 
   const { username } = data;
@@ -311,7 +314,7 @@ function generateNotifyUserEdit(data, lang = "en") {
     en: {
       title: 'PERSONAL INFORMATION CHANGED',
       welcome: `Hey, ${safeUsername}!`,
-      content: 'Your profile information has been updated.',
+      content: 'Your profile information has been edited/updated. If you are not aware or not the one who did this, please contact the library administrator.',
       footer: 'Happy reading!',
     },
   };
@@ -348,7 +351,7 @@ function generatePasswordChangedEmail(data, lang = "en") {
     en: {
       title: 'PASSWORD CHANGED',
       welcome: `Hey, ${safeUsername}!`,
-      content: 'Your password has been changed.',
+      content: 'Your password has been changed. If you are not the one who changed the password, please contact the library administration',
       footer: 'Happy reading!',
     },
   };
@@ -374,6 +377,7 @@ function generatePasswordChangedEmail(data, lang = "en") {
   </body>
   </html>`;
 }
+
 
 function generateUserActivated(data, lang = 'en') {
   const { username } = data;
@@ -411,6 +415,7 @@ function generateUserActivated(data, lang = 'en') {
   </html>`;
 
 }
+
 function generateUserDeactivated(data, lang = 'en') {
   const { username } = data;
   if (!username) throw new Error('Missing credentials for sending email');
@@ -420,7 +425,7 @@ function generateUserDeactivated(data, lang = 'en') {
     en: {
       title: 'ACCOUNT DEACTIVATED',
       welcome: `Dear ${safeUsername},`,
-      content: 'Your account has been temporarily deactivated. If you believe this is an error, please contact the library administration.',
+      content: 'Your account has been temporarily deactivated. If you believe you have not violated any of the rules of the library, please contact the library administration.',
       footer: 'NRB Library Team',
     },
   };
@@ -445,26 +450,38 @@ function generateUserDeactivated(data, lang = 'en') {
   </body>
   </html>`;
 }
+
+
 function generateBookAssigned(data, lang = 'en') {
-  const { username, bookName, dueDate } = data;
-  if (!username || !bookName || !dueDate) throw new Error('Missing data for book assignment email');
+  const { username, bookInfo } = data;
+  if (!username || !bookInfo || !Array.isArray(bookInfo)) {
+    throw new Error('Missing or invalid data for book assignment email');
+  }
 
   const safeUsername = sanitizeInput(username);
-  const safeBookName = sanitizeInput(bookName);
-  const formattedDueDate = formatLocalizedDate(dueDate, lang);
-  
+
+  // Format the book entries
+  const bookListHTML = bookInfo.map(book => {
+    const safeBookName = sanitizeInput(book.name);
+    return `
+      <li>
+        <strong>${safeBookName}</strong> – Due on: <strong>${book.expiryDate.toString()}</strong>
+      </li>
+    `;
+  }).join('');
+
   const translations = {
     en: {
-      title: 'BOOK ISSUED',
+      title: 'BOOK(S) ISSUED',
       welcome: `Hello ${safeUsername},`,
-      content: `You have been issued the book: <strong>${safeBookName}</strong>`,
-      dueInfo: `The book is due on: <strong>${formattedDueDate}</strong>`,
-      reminder: 'Please return the book on time to avoid late fees.',
+      contentIntro: 'You have been issued the following books:',
+      reminder: 'Please return the books on time to avoid late fees.',
       footer: 'NRB Library Team',
     },
   };
 
   const t = translations[lang];
+
   return `<!DOCTYPE html>
   <html lang="${lang}">
   <head>
@@ -477,8 +494,8 @@ function generateBookAssigned(data, lang = 'en') {
           <div class="header">${t.title}</div>
           <div class="content">
               <p>${t.welcome}</p>
-              <p>${t.content}</p>
-              <p>${t.dueInfo}</p>
+              <p>${t.contentIntro}</p>
+              <ul>${bookListHTML}</ul>
               <p>${t.reminder}</p>
           </div>
           <div class="footer">${t.footer}</div>
@@ -486,26 +503,34 @@ function generateBookAssigned(data, lang = 'en') {
   </body>
   </html>`;
 }
+
 function generateBookRenewed(data, lang = 'en') {
-  const { username, bookName, dueDate } = data;
-  if (!username || !bookName || !dueDate) throw new Error('Missing data for book renewal email');
+  const { username, bookInfo } = data;
+  if (!username || !bookInfo || !Array.isArray(bookInfo)) throw new Error('Missing or invalid data for book renewal email');
 
   const safeUsername = sanitizeInput(username);
-  const safeBookName = sanitizeInput(bookName);
-  const formattedDueDate = formatLocalizedDate(dueDate, lang);
-  
+
+  const bookListHtml = bookInfo.map((book) => {
+    const safeBookName = sanitizeInput(book.bookName);
+    return `
+      <li>
+        <strong>${safeBookName}</strong> – Due on: <strong>${book.expiryDate.toString()}</strong>
+      </li>
+    `;
+  }).join('');
+
   const translations = {
     en: {
-      title: 'BOOK RENEWED',
+      title: 'BOOK(S) RENEWED',
       welcome: `Hello ${safeUsername},`,
-      content: `Your book has been renewed: <strong>${safeBookName}</strong>`,
-      dueInfo: `The new due date is: <strong>${formattedDueDate}</strong>`,
+      contentIntro: 'You have renewed the following books:',
       reminder: 'Please return the book on time to avoid late fees.',
       footer: 'NRB Library Team',
     },
   };
 
   const t = translations[lang];
+
   return `<!DOCTYPE html>
   <html lang="${lang}">
   <head>
@@ -518,8 +543,8 @@ function generateBookRenewed(data, lang = 'en') {
           <div class="header">${t.title}</div>
           <div class="content">
               <p>${t.welcome}</p>
-              <p>${t.content}</p>
-              <p>${t.dueInfo}</p>
+              <p>${t.contentIntro}</p>
+              <p>${bookListHtml}</p>
               <p>${t.reminder}</p>
           </div>
           <div class="footer">${t.footer}</div>
@@ -527,18 +552,19 @@ function generateBookRenewed(data, lang = 'en') {
   </body>
   </html>`;
 }
+
 function generateBookReturned(data, lang = 'en') {
-  const { username, bookNames } = data;
-  if (!username || !bookNames) throw new Error('Missing data for book return email');
+  const { username, bookInfo } = data;
+  if (!username || !bookInfo) throw new Error('Missing data for book return email');
 
   const safeUsername = sanitizeInput(username);
-  const bookList = Array.isArray(bookNames) 
-    ? bookNames.map(book => `<li>${sanitizeInput(book)}</li>`).join('') 
-    : `<li>${sanitizeInput(bookNames)}</li>`;
-  
+  const bookListHTML = bookInfo.map(book => `<li><strong>${sanitizeInput(book.bookName)}</strong></li>`).join('')
+
+  console.log(bookListHTML);
+
   const translations = {
     en: {
-      title: 'BOOK RETURNED',
+      title: 'BOOK(S) RETURNED',
       welcome: `Hello ${safeUsername},`,
       content: 'The following book(s) have been successfully returned:',
       thankYou: 'Thank you for returning them. Visit us again soon!',
@@ -560,7 +586,7 @@ function generateBookReturned(data, lang = 'en') {
           <div class="content">
               <p>${t.welcome}</p>
               <p>${t.content}</p>
-              <ul>${bookList}</ul>
+              <ul>${bookListHTML}</ul>
               <p>${t.thankYou}</p>
           </div>
           <div class="footer">${t.footer}</div>
@@ -568,6 +594,8 @@ function generateBookReturned(data, lang = 'en') {
   </body>
   </html>`;
 }
+
+
 function generateUserDeleted(data, lang = 'en') {
   const { username } = data;
   if (!username) throw new Error('Missing credentials for sending email');
@@ -608,7 +636,7 @@ function generateResetPasswordEmail(data, lang = 'en') {
   if (!username || !resetLink) throw new Error('Missing data for password reset email');
 
   const safeUsername = sanitizeInput(username);
-  
+
   const translations = {
     en: {
       title: 'RESET YOUR PASSWORD',
@@ -642,6 +670,45 @@ function generateResetPasswordEmail(data, lang = 'en') {
               <p>${t.ignoreMessage}</p>
               <p>If the button doesn't work, copy and paste this URL into your browser:</p>
               <p style="word-break: break-all; font-size: 14px;"><a href="${resetLink}">${resetLink}</a></p>
+          </div>
+          <div class="footer">${t.footer}</div>
+      </div>
+  </body>
+  </html>`;
+}
+
+function generateRoleChanged(data, lang = 'en') {
+  const { username, role } = data;
+
+  if (!username || !role) {
+    throw new Error('Missing data for sending email for changing role.');
+  }
+
+  const safeUsername = sanitizeInput(username);
+  if (role === "ADMIN") { }
+
+  const translations = {
+    en: {
+      title: 'ROLE CHANGED',
+      welcome: `Hello ${safeUsername},`,
+      content: role === "ADMIN" ? 'You have been promoted to be an admin for the NRB Library Management System.' : 'You have been demoted to a member for the NRB Library Management System',
+      footer: 'NRB Library Team',
+    }
+  };
+  const t = translations[lang];
+  return `<!DOCTYPE html>
+  <html lang="${lang}">
+  <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      ${baseStyles}
+  </head>
+  <body>
+      <div class="email-container">
+          <div class="header">${t.title}</div>
+          <div class="content">
+              <p>${t.welcome}</p>
+              <p>${t.content}</p>
           </div>
           <div class="footer">${t.footer}</div>
       </div>

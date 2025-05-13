@@ -20,23 +20,46 @@ export async function startEmailWorker() {
           case 'user-deletion-email':
           case 'book-assigned-email':
           case 'book-renewed-email':
+          case 'role-changed-email':
           case 'book-returned-email': {
             const { to, subject, message } = job.data;
 
-            // Add timeout protection
-            const emailPromise = sendEmail(to, subject, message);
-            const timeoutPromise = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Email sending timeout')), 20000)
-            );
-
-            await Promise.race([emailPromise, timeoutPromise]);
-            return { success: true, type: job.name, timestamp: new Date().toISOString() };
+            const emailResult = await sendEmail(to, subject, message);
+            
+            if (!emailResult) {
+              throw new Error(`Failed to send ${job.name} to ${to}`);
+            }
+            
+            return {
+              success: true,
+              type: job.name,
+              timestamp: new Date().toISOString()
+            };
           }
 
           case 'reminder-email': {
             // Handle scheduled reminders
-            await findDueBookRemindersAndSendEmail();
-            return { success: true, type: 'reminder', timestamp: new Date().toISOString() };
+            const reminderResult = await findDueBookRemindersAndSendEmail();
+
+            if (!reminderResult || !reminderResult.success) {
+              throw new Error(reminderResult?.error || `Failed to process reminder emails`);
+            }
+
+            if(!reminderResult.emailSent && !reminderResult.totalBooks){
+              return {
+                success:true,
+                type:job.name,
+                message:'No Books For Reminding Currently'
+              }
+            }
+            
+            return {
+              success: true,
+              type: job.name,
+              emailSent: reminderResult.emailSent,
+              totalBooks: reminderResult.totalBooks,
+              timestamp: new Date().toISOString()
+            };
           }
 
           default:
@@ -44,7 +67,7 @@ export async function startEmailWorker() {
         }
       } catch (error) {
         console.error(`❌ Error processing job ${job.name} (id ${job.id}):`, error);
-        throw new Error(`Processing failed: ${error.message}`);
+        throw error; // Re-throw the error to trigger BullMQ retry mechanism
       }
     },
     {
@@ -53,15 +76,25 @@ export async function startEmailWorker() {
         port: parseInt(process.env.REDIS_PORT || '6379'),
         enableReadyCheck: true,
         connectTimeout: 10000,
+        // connection retry to redis server
         retryStrategy: (times) => Math.min(Math.pow(2, times) * 1000, 30000),
       },
-      concurrency: parseInt(process.env.EMAIL_WORKER_CONCURRENCY || '5'),
+      concurrency: parseInt(process.env.EMAIL_WORKER_CONCURRENCY || '10'),
       limiter: {
-        max: 50,  // Maximum 50 jobs per minute
+        max: 120,  // Maximum 100 jobs per minute
         duration: 60000,
       },
       stalledInterval: 30000, // Detect stalled jobs every 30 seconds
-      lockDuration: 60000,     // Job lock duration
+      lockDuration: 40000,     // Job lock duration
+      timeout: 20000,
+      // Add retry configuration for failed jobs
+      defaultJobOptions: {
+        attempts: 3,           // Number of retry attempts
+        backoff: {
+          type: 'exponential', // Retry strategy
+          delay: 5000          // Initial delay in ms (5 seconds)
+        }
+      }
     }
   );
 

@@ -3,7 +3,6 @@ import prisma from '../../lib/prisma.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
-import memberJson from './employee_info.json' with { type: 'json' };
 import { extractRelevantMemberInformation } from './ExceltoJSON.js';
 
 import path from 'path';

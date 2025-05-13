@@ -9,7 +9,9 @@ import {
   sendResponse,
 } from '../lib/responseHelper.js';
 import {
+  sendPasswordChangedEmail,
   sendPasswordResetNotification,
+  sendUserEditEmail,
   sendVerificationEmail,
 } from '../services/emailService/emailSender.js';
 import { version as uuidVersion, validate as uuidValidate, v4 as uuidv4 } from 'uuid';
@@ -189,6 +191,7 @@ export const updateMyProfileDetails = async (req, res) => {
     if (!updateUser) {
       return res.status(400).json({ message: 'Error while updating profile' });
     }
+    sendUserEditEmail(updateUser.email, updateUser.username);
     return res.status(200).json({ message: 'Profile Updated Successfully' });
   } catch (error) {
     throw error;
@@ -246,6 +249,7 @@ export const changePassword = async (req, res) => {
         .status(400)
         .json({ message: 'Error while updating password. Please contact admin.' });
     }
+    sendPasswordChangedEmail(updatedUser.email, updatedUser.username);
     return res.status(200).json({ message: 'Password Reset Successfully' });
   } catch (error) {
     throw error;
@@ -496,7 +500,7 @@ export const sendForgotPasswordLink = async (req, res) => {
     });
 
     try {
-      await sendPasswordResetNotification(userExist.email,userExist.username, resetPasswordToken);
+      await sendPasswordResetNotification(userExist.email, userExist.username, resetPasswordToken);
       // return res.redirect(`${process.env.FRONTEND_URI}/forgot/${resetPasswordToken}`)
 
       return sendResponse(res, 200, 'Password Reset Link Sent Successfully');
@@ -546,7 +550,7 @@ export const resetPassword = async (req, res) => {
     const newHashedPassword = await bcrypt.hash(newPassword, 10);
 
     try {
-      await prisma.member.update({
+      const member = await prisma.member.update({
         where: {
           id: user.id,
         },
@@ -556,6 +560,7 @@ export const resetPassword = async (req, res) => {
           resetPasswordTokenExpiry: null,
         },
       });
+      sendPasswordChangedEmail(member.email, member.username)
       return sendResponse(res, 200, 'Password Reset Successfully');
     } catch {
       return sendError(res, 500, 'Error while reseting password');

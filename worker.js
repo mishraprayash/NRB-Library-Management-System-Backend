@@ -8,7 +8,7 @@
 import express from 'express';
 import winston from 'winston';
 
-import { runBackgroundReapeatableReminderQueue } from './services/emailService/emailSender.js';
+// import { runBackgroundReapeatableReminderQueue } from './services/emailService/emailSender.js';
 import { startEmailWorker } from './services/bullMQ/worker.js';
 import { config } from 'dotenv';
 
@@ -95,7 +95,7 @@ try {
   logger.info('Starting background reminder queue...');
 
   // sets up a cron jobs for trigger reminderEmailWorker on a scheduled time
-  runBackgroundReapeatableReminderQueue();
+  // runBackgroundReapeatableReminderQueue();
 
   logger.info('All workers started successfully');
 } catch (error) {

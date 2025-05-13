@@ -40,3 +40,12 @@ export function sanitizeInput(input) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+
+export function convertToNepaliTime(isoDateStr) {
+  const date = new Date(isoDateStr);
+  // Offset in milliseconds: 5 hours 45 minutes = (5 * 60 + 45) * 60 * 1000
+  const nptOffsetMs = (5 * 60 + 45) * 60 * 1000;
+  const nepaliTime = new Date(date.getTime() + nptOffsetMs);
+  return nepaliTime;
+}

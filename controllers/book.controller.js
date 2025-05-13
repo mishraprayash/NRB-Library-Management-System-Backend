@@ -5,6 +5,8 @@ import fuzzy from 'fuzzy';
 import { validateMember, getDBConstraints } from '../lib/helpers.js';
 import { sendResponse, sendError } from '../lib/responseHelper.js';
 import { searchBorrowedBookSchema } from '../validation/schema.js';
+import { sendBookAssignedEmail, sendBookRenewedEmail, sendBookReturnedEmail } from '../services/emailService/emailSender.js';
+import { emailQueue } from '../services/bullMQ/queue.js';
 
 /**
 If we need to add a new book to the library, we can use this route.
@@ -87,6 +89,12 @@ export const borrowBook = async (req, res) => {
             bookCode: true,
           },
         },
+        member: {
+          select: {
+            username: true,
+            email: true
+          }
+        }
       },
     });
 
@@ -172,8 +180,12 @@ export const borrowBook = async (req, res) => {
           member: {
             select: {
               username: true,
+              name: true,
+              email: true
             },
           },
+          expiryDate: true,
+          borrowedDate: true,
         },
       }),
       prisma.book.updateMany({
@@ -191,6 +203,23 @@ export const borrowBook = async (req, res) => {
         successfulBorrows.push(transactionResults[i]);
       }
     }
+
+    let borrowedBooks = [];
+    successfulBorrows.map((borrowedBook) => {
+      borrowedBooks.push({
+        name: borrowedBook.book.name,
+        expiryDate: borrowedBook.expiryDate,
+        borrowedDate: borrowedBook.borrowedDate
+      })
+    })
+
+    const member = await prisma.member.findUnique({
+      where: {
+        id: memberId
+      }
+    })
+
+    sendBookAssignedEmail(member.email, member.username, borrowedBooks)
 
     return res.status(200).json({
       message: 'Books Borrowed Successfully',
@@ -223,6 +252,7 @@ export const getAllBorrowedBooks = async (req, res) => {
         gte: new Date(Date.now()),
       },
     };
+
     const borrowedBooks = await prisma.borrowedBook.findMany({
       where,
       orderBy: { [sortBy]: sort },
@@ -299,6 +329,8 @@ export const returnBook = async (req, res) => {
         .json({ message: 'The member hasnot borrowed books with provided ids.' });
     }
 
+    let successfullyReturnedBooks = [];
+
     await prisma.$transaction(async (tx) => {
       // Update borrowedBook table
       const updatedBorrowedBooks = await tx.borrowedBook.updateMany({
@@ -318,14 +350,24 @@ export const returnBook = async (req, res) => {
         throw new Error('Error while returning books 1');
       }
       // Update book table to mark books as total
-      const updateBook = await tx.book.updateMany({
+      const updatedBooks = await tx.book.updateManyAndReturn({
         where: { id: { in: bookIds } },
         data: { available: true },
       });
-      if (updateBook.count === 0) {
+
+      if (updatedBooks.length === 0) {
         throw new Error('Error while returning books 2');
       }
+      successfullyReturnedBooks = updatedBooks.map(book => ({ bookName: book.name }))
     });
+
+    const member = await prisma.member.findUnique({
+      where: {
+        id: memberId
+      }
+    })
+
+    sendBookReturnedEmail(member.email, member.username, successfullyReturnedBooks)
 
     return res.status(200).json({ message: 'Books returned successfully.' });
   } catch (error) {
@@ -407,6 +449,7 @@ export const renewBook = async (req, res) => {
       }
     });
 
+
     // Process renewals only if expiry date is within 2 days
     for (const validBook of validRenewalBooks) {
       const newExpiryDate = new Date(Date.now() + EXPIRY_DATE * 24 * 60 * 60 * 1000);
@@ -432,6 +475,7 @@ export const renewBook = async (req, res) => {
         bookId: validBook.bookId,
         message: `Book with ${validBook.bookId} renewed successfully`,
         bookName: validBook.bookName,
+        expiryDate: newExpiryDate
       });
     }
 
@@ -442,6 +486,20 @@ export const renewBook = async (req, res) => {
         failedRenew: failedRenew.length !== 0 ? failedRenew : [],
       });
     }
+
+    const member = await prisma.member.findUnique({
+      where: {
+        id: memberId
+      }
+    });
+
+    const bookInfo = successfullRenews.map((book) => ({
+      bookName: book.bookName,
+      expiryDate: book.expiryDate
+    }))
+
+    sendBookRenewedEmail(member.email, member.username, bookInfo)
+
     return res.status(200).json({
       message: `${successfullRenews.length} Books Renewed`,
       successfullRenews,

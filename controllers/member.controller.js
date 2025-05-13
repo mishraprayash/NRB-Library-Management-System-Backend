@@ -3,6 +3,10 @@ import bcrypt from 'bcryptjs';
 import { groupBooks, validateMember } from '../lib/helpers.js';
 import {
   sendPasswordChangedEmail,
+  sendRoleChangedEmail,
+  sendUserActivationEmail,
+  sendUserDeactivationEmail,
+  sendUserDeletionEmail,
   sendUserEditEmail,
   // sendVerificationEmail,
   sendWelcomeNotification,
@@ -193,11 +197,13 @@ export const deleteMember = async (req, res) => {
     if (memberExist.role === 'SUPERADMIN') {
       return sendError(res, 400, 'Super Admin cannot be deleted');
     }
-    await prisma.member.delete({
+    const member = await prisma.member.delete({
       where: {
         id: memberId,
       },
     });
+    
+    sendUserDeletionEmail(member.email, member.username);
     return sendResponse(res, 200, 'Member Deleted Successfully');
   } catch (error) {
     throw error;
@@ -341,6 +347,7 @@ export const deactivateMember = async (req, res) => {
         isActive: false,
       },
     });
+    sendUserDeactivationEmail(memberExists.email, memberExists.username);
     return sendResponse(res, 200, `Successfully deactivated ${memberExists.role}`);
   } catch (error) {
     throw error;
@@ -362,6 +369,7 @@ export const activateMember = async (req, res) => {
         isActive: true,
       },
     });
+    sendUserActivationEmail(memberExists.email, memberExists.username);
     return sendResponse(res, 200, `Successfully activated ${memberExists.role}`);
   } catch (error) {
     throw error;
@@ -394,6 +402,7 @@ export const changeRole = async (req, res) => {
         role
       }
     })
+    sendRoleChangedEmail(memberExists.email, memberExists.username, role)
     return sendResponse(res, 200, `Role of ${memberExists.username} changed to ${role}`)
   } catch (error) {
     throw error;
