@@ -25,7 +25,6 @@ export const emailQueue = new Queue('email-queue', {
   },
 });
 
-
 // Listen to events
 emailQueue.on('error', (error) => {
   console.error('Email queue error:', error);

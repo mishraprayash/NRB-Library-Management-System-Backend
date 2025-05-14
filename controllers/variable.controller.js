@@ -104,6 +104,9 @@ export const getVariables = async (req, res) => {
         CATEGORIES: true,
       },
     });
+    if (!VARIABLES) {
+      return res.status(400).json({ message: 'Please create the variables first' });
+    }
     return res
       .status(200)
       .json({ message: 'Varibales Fetched Successfully', variables: VARIABLES });

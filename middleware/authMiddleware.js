@@ -4,7 +4,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import pkg from "jsonwebtoken";
+import pkg from 'jsonwebtoken';
 const { JsonWebTokenError } = pkg;
 
 // Helper function to send authentication errors

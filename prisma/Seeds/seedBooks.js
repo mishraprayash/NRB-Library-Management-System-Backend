@@ -1,13 +1,11 @@
-import xlsx from 'xlsx';
-
 import prisma from '../../lib/prisma.js';
 
 import { v4 as uuidv4 } from 'uuid';
-import { convertBookExcelToJSON } from "./ExceltoJSON.js"
+import { convertBookExcelToJSON } from './ExceltoJSON.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url)
+const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 function generateBookCode() {
@@ -37,7 +35,7 @@ function toTitleCase(str) {
 const allCategories = [];
 
 async function SeedBook() {
-  const data = convertBookExcelToJSON(path.join(__dirname, '/BookList.xls'))
+  const data = convertBookExcelToJSON(path.join(__dirname, '/BookList.xls'));
 
   const seenBooks = new Map();
 
@@ -103,11 +101,11 @@ async function SeedBook() {
       console.error(`❌ Failed to insert book: ${bookName}`, err);
     }
   }
-  console.log(`Total Books: 1144`);
+  console.log(`Total Books Given: 1144`);
   console.log(`Total added successfully: ${totalSuccess}`);
 }
 
-async function UpdateVariables() {
+async function UpdateCategories() {
   try {
     // await prisma.variables.();
     await prisma.variables.updateMany({
@@ -115,19 +113,22 @@ async function UpdateVariables() {
         CATEGORIES: allCategories,
       },
     });
+    console.log('Variables Updated Success');
   } catch (error) {
     console.log(error);
   }
 }
 
-async function main() {
+export async function handleBooksSeeding() {
   await SeedBook();
-  await UpdateVariables()
+  await UpdateCategories();
 }
 
-main()
-  .then(() => console.log("✅ Books Added Successfully"))
-  .catch((e) => console.log(`Seeding Error`, e))
-  .finally(async () => {
-    prisma.$disconnect();
-  });
+// // in case you want to seed it alone
+
+// handleBooksSeeding()
+//   .then(() => console.log("✅ Books Added Successfully"))
+//   .catch((e) => console.log(`Seeding Error`, e))
+//   .finally(async () => {
+//     prisma.$disconnect();
+// });

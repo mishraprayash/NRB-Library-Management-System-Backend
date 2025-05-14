@@ -25,15 +25,15 @@ export async function startEmailWorker() {
             const { to, subject, message } = job.data;
 
             const emailResult = await sendEmail(to, subject, message);
-            
+
             if (!emailResult) {
               throw new Error(`Failed to send ${job.name} to ${to}`);
             }
-            
+
             return {
               success: true,
               type: job.name,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
             };
           }
 
@@ -45,20 +45,20 @@ export async function startEmailWorker() {
               throw new Error(reminderResult?.error || `Failed to process reminder emails`);
             }
 
-            if(!reminderResult.emailSent && !reminderResult.totalBooks){
+            if (!reminderResult.emailSent && !reminderResult.totalBooks) {
               return {
-                success:true,
-                type:job.name,
-                message:'No Books For Reminding Currently'
-              }
+                success: true,
+                type: job.name,
+                message: 'No Books For Reminding Currently',
+              };
             }
-            
+
             return {
               success: true,
               type: job.name,
               emailSent: reminderResult.emailSent,
               totalBooks: reminderResult.totalBooks,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
             };
           }
 
@@ -81,20 +81,20 @@ export async function startEmailWorker() {
       },
       concurrency: parseInt(process.env.EMAIL_WORKER_CONCURRENCY || '10'),
       limiter: {
-        max: 120,  // Maximum 100 jobs per minute
+        max: 120, // Maximum 100 jobs per minute
         duration: 60000,
       },
       stalledInterval: 30000, // Detect stalled jobs every 30 seconds
-      lockDuration: 40000,     // Job lock duration
+      lockDuration: 40000, // Job lock duration
       timeout: 20000,
       // Add retry configuration for failed jobs
       defaultJobOptions: {
-        attempts: 3,           // Number of retry attempts
+        attempts: 3, // Number of retry attempts
         backoff: {
           type: 'exponential', // Retry strategy
-          delay: 5000          // Initial delay in ms (5 seconds)
-        }
-      }
+          delay: 5000, // Initial delay in ms (5 seconds)
+        },
+      },
     }
   );
 

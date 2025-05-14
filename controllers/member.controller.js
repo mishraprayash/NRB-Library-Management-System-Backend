@@ -1,6 +1,6 @@
 import prisma from '../lib/prisma.js';
 import bcrypt from 'bcryptjs';
-import { groupBooks, validateMember } from '../lib/helpers.js';
+import { validateMember } from '../lib/helpers.js';
 import {
   sendPasswordChangedEmail,
   sendRoleChangedEmail,
@@ -12,7 +12,6 @@ import {
   sendWelcomeNotification,
 } from '../services/emailService/emailSender.js';
 import { sendError, sendResponse } from '../lib/responseHelper.js';
-import { date } from 'zod';
 
 /*
 SuperAdmin and Admin only
@@ -202,7 +201,7 @@ export const deleteMember = async (req, res) => {
         id: memberId,
       },
     });
-    
+
     sendUserDeletionEmail(member.email, member.username);
     return sendResponse(res, 200, 'Member Deleted Successfully');
   } catch (error) {
@@ -216,7 +215,6 @@ Fetching dashboard info for a member.
 
 export const getDashboardDetails = async (req, res) => {
   try {
-
     // Fetch all relevant data in a single query
     const borrowedBooks = await prisma.borrowedBook.findMany({
       where: { memberId: req.user.id },
@@ -250,8 +248,7 @@ export const getDashboardDetails = async (req, res) => {
       if (!borrow.returned) {
         if (borrow.expiryDate <= new Date()) {
           expiredBooks.push(borrow);
-        }
-        else {
+        } else {
           currentlyBorrowedBooks.push(borrow);
         }
       }
@@ -262,7 +259,7 @@ export const getDashboardDetails = async (req, res) => {
       countOfCurrentlyBorrowedBooks: currentlyBorrowedBooks.length,
       countOfExpiredBooks: expiredBooks.length,
       expiredBooks,
-      currentlyBorrowedBooks
+      currentlyBorrowedBooks,
     });
   } catch (error) {
     throw error;
@@ -381,30 +378,30 @@ export const changeRole = async (req, res) => {
     const { memberId, role } = req.body;
     const memberExists = await prisma.member.findUnique({
       where: {
-        id: memberId
-      }
-    })
+        id: memberId,
+      },
+    });
     if (!memberExists) {
-      return sendError(res, 400, "Member doesnot exist");
+      return sendError(res, 400, 'Member doesnot exist');
     }
 
     if (memberExists.role === role) {
       return sendError(res, 400, `Member is already a ${role}`);
     }
-    if (memberExists.role === "SUPERADMIN") {
-      return sendError(res, 400, "Cannot change SUPERADMIN role");
+    if (memberExists.role === 'SUPERADMIN') {
+      return sendError(res, 400, 'Cannot change SUPERADMIN role');
     }
     await prisma.member.update({
       where: {
-        id: memberId
+        id: memberId,
       },
       data: {
-        role
-      }
-    })
-    sendRoleChangedEmail(memberExists.email, memberExists.username, role)
-    return sendResponse(res, 200, `Role of ${memberExists.username} changed to ${role}`)
+        role,
+      },
+    });
+    sendRoleChangedEmail(memberExists.email, memberExists.username, role);
+    return sendResponse(res, 200, `Role of ${memberExists.username} changed to ${role}`);
   } catch (error) {
     throw error;
   }
-}
+};

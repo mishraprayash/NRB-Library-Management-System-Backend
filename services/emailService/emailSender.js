@@ -105,7 +105,7 @@ export async function findDueBookRemindersAndSendEmail() {
             reminderEmailSent: true,
           },
         });
-        // delaying by 200ms 
+        // delaying by 200ms
         await new Promise((resolve) => setTimeout(resolve, 200));
       }
     }
@@ -113,33 +113,32 @@ export async function findDueBookRemindersAndSendEmail() {
     return {
       success: true,
       emailSent: borrowedBooksWithEmailSent.length,
-      totalBooks: borrowedBooks.length
-    }
-
+      totalBooks: borrowedBooks.length,
+    };
   } catch (error) {
     console.error('🚨 Critical error in book reminders:', error);
     return {
       success: false,
-      error: error.message
-    }
+      error: error.message,
+    };
   }
 }
 
 // // Initialize scheduled tasks
-// export async function runBackgroundReapeatableReminderQueue() {
-//   await emailQueue.add(
-//     'reminder-email',
-//     {},
-//     {
-//       repeat: {
-//         pattern: CRON_SCHEDULE,
-//         tz: 'UTC',
-//       },
+export async function runBackgroundReapeatableReminderQueue() {
+  await emailQueue.add(
+    'reminder-email',
+    {},
+    {
+      repeat: {
+        pattern: CRON_SCHEDULE,
+        tz: 'UTC',
+      },
 
-//       jobId: 'daily-book-reminder', // Fixed ID to avoid duplicates
-//     }
-//   );
-// }
+      jobId: 'daily-book-reminder', // Fixed ID to avoid duplicates
+    }
+  );
+}
 
 /**
  * Sends password reset notification email
@@ -150,7 +149,8 @@ export async function findDueBookRemindersAndSendEmail() {
 export async function sendPasswordResetNotification(email, username, resetPasswordToken) {
   try {
     const template = generateEmailTemplate('password-reset', {
-      email, username,
+      email,
+      username,
       resetPasswordToken,
     });
     await sendEmail(email, template.subject, template.html);
@@ -278,10 +278,10 @@ export async function sendUserDeletionEmail(email, username) {
 
 export async function sendBookAssignedEmail(email, username, bookInfo) {
   try {
-    console.log("Sending assign Email......");
+    console.log('Sending assign Email......');
     const template = generateEmailTemplate('book-assigned', {
       username,
-      bookInfo
+      bookInfo,
     });
     await emailQueue.add('book-assigned-email', {
       to: email,
@@ -298,7 +298,7 @@ export async function sendBookRenewedEmail(email, username, bookInfo) {
   try {
     const template = generateEmailTemplate('book-renewed', {
       username,
-      bookInfo
+      bookInfo,
     });
     await emailQueue.add('book-renewed-email', {
       to: email,
@@ -332,13 +332,13 @@ export async function sendUserEditEmail(email, username) {
   try {
     const template = generateEmailTemplate('notify-user-edit', {
       email,
-      username
-    })
+      username,
+    });
     await emailQueue.add('useredit-email', {
       to: email,
       subject: template.subject,
-      message: template.html
-    })
+      message: template.html,
+    });
   } catch (error) {
     console.error(`❌ Failed to send welcome email to ${email}:`, error.message);
     throw error;
@@ -349,13 +349,13 @@ export async function sendPasswordChangedEmail(email, username) {
   try {
     const template = generateEmailTemplate('password-changed', {
       email,
-      username
-    })
+      username,
+    });
     await emailQueue.add('password-changed-email', {
       to: email,
       subject: template.subject,
-      message: template.html
-    })
+      message: template.html,
+    });
   } catch (error) {
     console.error(`❌ Failed to send welcome email to ${email}:`, error.message);
     throw error;
@@ -366,13 +366,13 @@ export async function sendRoleChangedEmail(email, username, role) {
   try {
     const template = generateEmailTemplate('role-changed', {
       username,
-      role
-    })
+      role,
+    });
     await emailQueue.add('role-changed-email', {
       to: email,
       subject: template.subject,
-      message: template.html
-    })
+      message: template.html,
+    });
   } catch (error) {
     console.error(`❌ Failed to send welcome email to ${email}:`, error.message);
     throw error;

@@ -8,9 +8,9 @@
 import express from 'express';
 import winston from 'winston';
 
-// import { runBackgroundReapeatableReminderQueue } from './services/emailService/emailSender.js';
 import { startEmailWorker } from './services/bullMQ/worker.js';
 import { config } from 'dotenv';
+import { runBackgroundReapeatableReminderQueue } from './services/emailService/emailSender.js';
 
 // Load environment variables
 config();
@@ -89,14 +89,8 @@ try {
   if (!process.env.EMAIL_AUTH_USER || !process.env.EMAIL_AUTH_PASSWORD) {
     throw new Error('Email credentials not found in environment variables');
   }
-
-  startEmailWorker()
-
-  logger.info('Starting background reminder queue...');
-
-  // sets up a cron jobs for trigger reminderEmailWorker on a scheduled time
+  startEmailWorker();
   // runBackgroundReapeatableReminderQueue();
-
   logger.info('All workers started successfully');
 } catch (error) {
   logger.error('Error starting workers:', error);

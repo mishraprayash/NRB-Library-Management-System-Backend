@@ -168,5 +168,5 @@ export const searchBorrowedBookSchema = z.object({
 
 export const changeRoleSchema = z.object({
   memberId: id,
-  role: z.enum(['ADMIN', 'MEMBER'])
-})
+  role: z.enum(['ADMIN', 'MEMBER']),
+});

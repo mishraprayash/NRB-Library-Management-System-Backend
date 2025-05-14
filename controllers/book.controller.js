@@ -5,8 +5,11 @@ import fuzzy from 'fuzzy';
 import { validateMember, getDBConstraints } from '../lib/helpers.js';
 import { sendResponse, sendError } from '../lib/responseHelper.js';
 import { searchBorrowedBookSchema } from '../validation/schema.js';
-import { sendBookAssignedEmail, sendBookRenewedEmail, sendBookReturnedEmail } from '../services/emailService/emailSender.js';
-import { emailQueue } from '../services/bullMQ/queue.js';
+import {
+  sendBookAssignedEmail,
+  sendBookRenewedEmail,
+  sendBookReturnedEmail,
+} from '../services/emailService/emailSender.js';
 
 /**
 If we need to add a new book to the library, we can use this route.
@@ -73,7 +76,12 @@ export const borrowBook = async (req, res) => {
         .json({ message: 'Member does not exist. Please provide a valid memberId' });
     }
     // Get system constraints
-    const [BORROW_LIMIT, EXPIRY_DATE] = await getDBConstraints(req, res);
+    const dbConstraints = await getDBConstraints();
+
+    const [MAX_BORROW_LIMIT, EXPIRY_DATE, ,] = dbConstraints;
+    if (!MAX_BORROW_LIMIT || !EXPIRY_DATE) {
+      return res.status(500).json({ message: 'Error fetching library constraints' });
+    }
 
     // Fetch already borrowed books for the member
     const booksBorrowedByAMember = await prisma.borrowedBook.findMany({
@@ -92,17 +100,17 @@ export const borrowBook = async (req, res) => {
         member: {
           select: {
             username: true,
-            email: true
-          }
-        }
+            email: true,
+          },
+        },
       },
     });
 
     // Check borrowing limit
     const countOfBorrowedBooks = booksBorrowedByAMember.length;
-    if (countOfBorrowedBooks + bookIds.length > BORROW_LIMIT) {
+    if (countOfBorrowedBooks + bookIds.length > MAX_BORROW_LIMIT) {
       return res.status(400).json({
-        message: `Limit Exceeded. The member has borrowed ${countOfBorrowedBooks} books. Remaining Borrow Limit: ${BORROW_LIMIT - countOfBorrowedBooks}`,
+        message: `Limit Exceeded. The member has borrowed ${countOfBorrowedBooks} books. Remaining Borrow Limit: ${MAX_BORROW_LIMIT - countOfBorrowedBooks}`,
         borrowedCount: countOfBorrowedBooks,
       });
     }
@@ -181,7 +189,7 @@ export const borrowBook = async (req, res) => {
             select: {
               username: true,
               name: true,
-              email: true
+              email: true,
             },
           },
           expiryDate: true,
@@ -209,17 +217,17 @@ export const borrowBook = async (req, res) => {
       borrowedBooks.push({
         name: borrowedBook.book.name,
         expiryDate: borrowedBook.expiryDate,
-        borrowedDate: borrowedBook.borrowedDate
-      })
-    })
+        borrowedDate: borrowedBook.borrowedDate,
+      });
+    });
 
     const member = await prisma.member.findUnique({
       where: {
-        id: memberId
-      }
-    })
+        id: memberId,
+      },
+    });
 
-    sendBookAssignedEmail(member.email, member.username, borrowedBooks)
+    sendBookAssignedEmail(member.email, member.username, borrowedBooks);
 
     return res.status(200).json({
       message: 'Books Borrowed Successfully',
@@ -358,16 +366,16 @@ export const returnBook = async (req, res) => {
       if (updatedBooks.length === 0) {
         throw new Error('Error while returning books 2');
       }
-      successfullyReturnedBooks = updatedBooks.map(book => ({ bookName: book.name }))
+      successfullyReturnedBooks = updatedBooks.map((book) => ({ bookName: book.name }));
     });
 
     const member = await prisma.member.findUnique({
       where: {
-        id: memberId
-      }
-    })
+        id: memberId,
+      },
+    });
 
-    sendBookReturnedEmail(member.email, member.username, successfullyReturnedBooks)
+    sendBookReturnedEmail(member.email, member.username, successfullyReturnedBooks);
 
     return res.status(200).json({ message: 'Books returned successfully.' });
   } catch (error) {
@@ -424,7 +432,13 @@ export const renewBook = async (req, res) => {
         .json({ message: 'The member hasnot borrowed books with provided ids.' });
     }
 
-    const [, EXPIRY_DATE, , MAX_RENEWAL_LIMIT] = await getDBConstraints();
+    const dbConstraints = await getDBConstraints();
+    const [, EXPIRY_DATE, MAX_RENEWAL_LIMIT] = dbConstraints;
+
+    if (!EXPIRY_DATE || !MAX_RENEWAL_LIMIT) {
+      return res.status(500).json({ message: 'Error fetching library constraints' });
+    }
+
     const invalidRenewalBooks = [];
     const validRenewalBooks = [];
     const failedRenew = [];
@@ -448,7 +462,6 @@ export const renewBook = async (req, res) => {
         });
       }
     });
-
 
     // Process renewals only if expiry date is within 2 days
     for (const validBook of validRenewalBooks) {
@@ -475,7 +488,7 @@ export const renewBook = async (req, res) => {
         bookId: validBook.bookId,
         message: `Book with ${validBook.bookId} renewed successfully`,
         bookName: validBook.bookName,
-        expiryDate: newExpiryDate
+        expiryDate: newExpiryDate,
       });
     }
 
@@ -489,16 +502,16 @@ export const renewBook = async (req, res) => {
 
     const member = await prisma.member.findUnique({
       where: {
-        id: memberId
-      }
+        id: memberId,
+      },
     });
 
     const bookInfo = successfullRenews.map((book) => ({
       bookName: book.bookName,
-      expiryDate: book.expiryDate
-    }))
+      expiryDate: book.expiryDate,
+    }));
 
-    sendBookRenewedEmail(member.email, member.username, bookInfo)
+    sendBookRenewedEmail(member.email, member.username, bookInfo);
 
     return res.status(200).json({
       message: `${successfullRenews.length} Books Renewed`,
@@ -592,10 +605,13 @@ export const getDashBoardInfo = async (req, res) => {
     const now = new Date();
 
     // Get DB constraints
-    const [MAX_BORROW_LIMIT, EXPIRYDATE, MAX_RENEWAL_LIMIT, CATEGORIES] = await getDBConstraints(
-      req,
-      res
-    );
+    const dbConstraints = await getDBConstraints();
+
+    const [MAX_BORROW_LIMIT, EXPIRYDATE, MAX_RENEWAL_LIMIT, CATEGORIES] = dbConstraints;
+
+    if (!MAX_BORROW_LIMIT || !EXPIRYDATE || !MAX_RENEWAL_LIMIT || !CATEGORIES) {
+      return res.status(400).json({ message: 'Error fetching library  Constraints' });
+    }
 
     // Get book stats
     const [booksByCategory, totalBooksCount, distinctBookNames, totalMemberCount, borrowedBooks] =

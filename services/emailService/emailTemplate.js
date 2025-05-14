@@ -220,17 +220,17 @@ function generateRegistration(data, lang = 'en') {
       features:
         role === 'ADMIN'
           ? [
-            'Add a new book',
-            'Add a new memeber',
-            'Assign a book to a member',
-            'Renew/Return the book for a member',
-          ]
+              'Add a new book',
+              'Add a new memeber',
+              'Assign a book to a member',
+              'Renew/Return the book for a member',
+            ]
           : [
-            'Browse our online catalog',
-            'Reserve books up to 7 days in advance',
-            'Renew books online',
-            'Track your borrowing history',
-          ],
+              'Browse our online catalog',
+              'Reserve books up to 7 days in advance',
+              'Renew books online',
+              'Track your borrowing history',
+            ],
       footer: 'Happy reading!',
     },
   };
@@ -304,8 +304,7 @@ function generateVerificationEmail(data, lang = 'en') {
 </html>`;
 }
 
-function generateNotifyUserEdit(data, lang = "en") {
-
+function generateNotifyUserEdit(data, lang = 'en') {
   const { username } = data;
   if (!username) throw new Error('Missing credentials for sending email');
 
@@ -314,7 +313,8 @@ function generateNotifyUserEdit(data, lang = "en") {
     en: {
       title: 'PERSONAL INFORMATION CHANGED',
       welcome: `Hey, ${safeUsername}!`,
-      content: 'Your profile information has been edited/updated. If you are not aware or not the one who did this, please contact the library administrator.',
+      content:
+        'Your profile information has been edited/updated. If you are not aware or not the one who did this, please contact the library administrator.',
       footer: 'Happy reading!',
     },
   };
@@ -339,10 +339,9 @@ function generateNotifyUserEdit(data, lang = "en") {
       </div>
   </body>
   </html>`;
-
 }
 
-function generatePasswordChangedEmail(data, lang = "en") {
+function generatePasswordChangedEmail(data, lang = 'en') {
   const { username } = data;
   if (!username) throw new Error('Missing credentials for sending email');
 
@@ -351,7 +350,8 @@ function generatePasswordChangedEmail(data, lang = "en") {
     en: {
       title: 'PASSWORD CHANGED',
       welcome: `Hey, ${safeUsername}!`,
-      content: 'Your password has been changed. If you are not the one who changed the password, please contact the library administration',
+      content:
+        'Your password has been changed. If you are not the one who changed the password, please contact the library administration',
       footer: 'Happy reading!',
     },
   };
@@ -377,7 +377,6 @@ function generatePasswordChangedEmail(data, lang = "en") {
   </body>
   </html>`;
 }
-
 
 function generateUserActivated(data, lang = 'en') {
   const { username } = data;
@@ -413,7 +412,6 @@ function generateUserActivated(data, lang = 'en') {
       </div>
   </body>
   </html>`;
-
 }
 
 function generateUserDeactivated(data, lang = 'en') {
@@ -425,7 +423,8 @@ function generateUserDeactivated(data, lang = 'en') {
     en: {
       title: 'ACCOUNT DEACTIVATED',
       welcome: `Dear ${safeUsername},`,
-      content: 'Your account has been temporarily deactivated. If you believe you have not violated any of the rules of the library, please contact the library administration.',
+      content:
+        'Your account has been temporarily deactivated. If you believe you have not violated any of the rules of the library, please contact the library administration.',
       footer: 'NRB Library Team',
     },
   };
@@ -451,7 +450,6 @@ function generateUserDeactivated(data, lang = 'en') {
   </html>`;
 }
 
-
 function generateBookAssigned(data, lang = 'en') {
   const { username, bookInfo } = data;
   if (!username || !bookInfo || !Array.isArray(bookInfo)) {
@@ -461,14 +459,16 @@ function generateBookAssigned(data, lang = 'en') {
   const safeUsername = sanitizeInput(username);
 
   // Format the book entries
-  const bookListHTML = bookInfo.map(book => {
-    const safeBookName = sanitizeInput(book.name);
-    return `
+  const bookListHTML = bookInfo
+    .map((book) => {
+      const safeBookName = sanitizeInput(book.name);
+      return `
       <li>
         <strong>${safeBookName}</strong> – Due on: <strong>${book.expiryDate.toString()}</strong>
       </li>
     `;
-  }).join('');
+    })
+    .join('');
 
   const translations = {
     en: {
@@ -506,18 +506,21 @@ function generateBookAssigned(data, lang = 'en') {
 
 function generateBookRenewed(data, lang = 'en') {
   const { username, bookInfo } = data;
-  if (!username || !bookInfo || !Array.isArray(bookInfo)) throw new Error('Missing or invalid data for book renewal email');
+  if (!username || !bookInfo || !Array.isArray(bookInfo))
+    throw new Error('Missing or invalid data for book renewal email');
 
   const safeUsername = sanitizeInput(username);
 
-  const bookListHtml = bookInfo.map((book) => {
-    const safeBookName = sanitizeInput(book.bookName);
-    return `
+  const bookListHtml = bookInfo
+    .map((book) => {
+      const safeBookName = sanitizeInput(book.bookName);
+      return `
       <li>
         <strong>${safeBookName}</strong> – Due on: <strong>${book.expiryDate.toString()}</strong>
       </li>
     `;
-  }).join('');
+    })
+    .join('');
 
   const translations = {
     en: {
@@ -558,7 +561,9 @@ function generateBookReturned(data, lang = 'en') {
   if (!username || !bookInfo) throw new Error('Missing data for book return email');
 
   const safeUsername = sanitizeInput(username);
-  const bookListHTML = bookInfo.map(book => `<li><strong>${sanitizeInput(book.bookName)}</strong></li>`).join('')
+  const bookListHTML = bookInfo
+    .map((book) => `<li><strong>${sanitizeInput(book.bookName)}</strong></li>`)
+    .join('');
 
   console.log(bookListHTML);
 
@@ -595,7 +600,6 @@ function generateBookReturned(data, lang = 'en') {
   </html>`;
 }
 
-
 function generateUserDeleted(data, lang = 'en') {
   const { username } = data;
   if (!username) throw new Error('Missing credentials for sending email');
@@ -605,7 +609,8 @@ function generateUserDeleted(data, lang = 'en') {
     en: {
       title: 'ACCOUNT DELETED',
       welcome: `Dear ${safeUsername},`,
-      content: 'Your account has been deleted from our system. If you believe this was done in error, please contact the library administration.',
+      content:
+        'Your account has been deleted from our system. If you believe this was done in error, please contact the library administration.',
       footer: 'NRB Library Team',
     },
   };
@@ -641,10 +646,12 @@ function generateResetPasswordEmail(data, lang = 'en') {
     en: {
       title: 'RESET YOUR PASSWORD',
       welcome: `Hello ${safeUsername},`,
-      content: 'We received a request to reset your password. Click the button below to create a new password:',
+      content:
+        'We received a request to reset your password. Click the button below to create a new password:',
       buttonText: 'Reset Password',
       expiryNote: 'This link will expire in 15 minutes for security reasons.',
-      ignoreMessage: 'If you did not request a password reset, please ignore this email or contact support if you have concerns.',
+      ignoreMessage:
+        'If you did not request a password reset, please ignore this email or contact support if you have concerns.',
       footer: 'NRB Library Team',
     },
   };
@@ -685,15 +692,19 @@ function generateRoleChanged(data, lang = 'en') {
   }
 
   const safeUsername = sanitizeInput(username);
-  if (role === "ADMIN") { }
+  if (role === 'ADMIN') {
+  }
 
   const translations = {
     en: {
       title: 'ROLE CHANGED',
       welcome: `Hello ${safeUsername},`,
-      content: role === "ADMIN" ? 'You have been promoted to be an admin for the NRB Library Management System.' : 'You have been demoted to a member for the NRB Library Management System',
+      content:
+        role === 'ADMIN'
+          ? 'You have been promoted to be an admin for the NRB Library Management System.'
+          : 'You have been demoted to a member for the NRB Library Management System',
       footer: 'NRB Library Team',
-    }
+    },
   };
   const t = translations[lang];
   return `<!DOCTYPE html>

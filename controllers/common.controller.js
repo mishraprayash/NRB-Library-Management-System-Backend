@@ -560,7 +560,7 @@ export const resetPassword = async (req, res) => {
           resetPasswordTokenExpiry: null,
         },
       });
-      sendPasswordChangedEmail(member.email, member.username)
+      sendPasswordChangedEmail(member.email, member.username);
       return sendResponse(res, 200, 'Password Reset Successfully');
     } catch {
       return sendError(res, 500, 'Error while reseting password');
