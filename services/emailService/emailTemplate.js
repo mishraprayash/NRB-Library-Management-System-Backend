@@ -7,6 +7,7 @@
 
 import { baseStyles } from './template-style.js';
 import { sanitizeInput, formatLocalizedDate, convertToNepaliTime } from './utilities.js';
+import { calculateExpiryDate } from '../../lib/helpers.js';
 
 /**
  * Generates email templates for different notification types
@@ -116,8 +117,11 @@ function generateDueReminder(data, lang = 'en') {
   const t = translations[lang];
   const bookList = books
     .map(
-      (book) =>
-        `<li><strong>${sanitizeInput(book.name)}</strong> (${lang === 'ne' ? 'अन्तिम मिति' : 'Due by'}: ${formatLocalizedDate(book.expiryDate, lang)})</li>`
+      (book) =>{
+        const expiryDate = new Date(book.expiryDate);
+        const expiryDateInNepali = calculateExpiryDate(expiryDate);
+        return `<li><strong>${sanitizeInput(book.name)}</strong> 'Due by': ${expiryDateInNepali}</li>`
+      }
     )
     .join('');
 
@@ -220,17 +224,17 @@ function generateRegistration(data, lang = 'en') {
       features:
         role === 'ADMIN'
           ? [
-              'Add a new book',
-              'Add a new memeber',
-              'Assign a book to a member',
-              'Renew/Return the book for a member',
-            ]
+            'Add a new book',
+            'Add a new memeber',
+            'Assign a book to a member',
+            'Renew/Return the book for a member',
+          ]
           : [
-              'Browse our online catalog',
-              'Reserve books up to 7 days in advance',
-              'Renew books online',
-              'Track your borrowing history',
-            ],
+            'Browse our online catalog',
+            'Reserve books up to 7 days in advance',
+            'Renew books online',
+            'Track your borrowing history',
+          ],
       footer: 'Happy reading!',
     },
   };
@@ -458,13 +462,17 @@ function generateBookAssigned(data, lang = 'en') {
 
   const safeUsername = sanitizeInput(username);
 
+
+
   // Format the book entries
   const bookListHTML = bookInfo
     .map((book) => {
       const safeBookName = sanitizeInput(book.name);
+      const expiryDate = new Date(book.expiryDate)
+      const expiryDateInNepali = calculateExpiryDate(expiryDate)
       return `
       <li>
-        <strong>${safeBookName}</strong> – Due on: <strong>${book.expiryDate.toString()}</strong>
+        <strong>${safeBookName}</strong> – Due on: <strong>${expiryDateInNepali}</strong>
       </li>
     `;
     })
@@ -511,12 +519,15 @@ function generateBookRenewed(data, lang = 'en') {
 
   const safeUsername = sanitizeInput(username);
 
+
   const bookListHtml = bookInfo
     .map((book) => {
       const safeBookName = sanitizeInput(book.bookName);
+      const expiryDate = new Date(book.expiryDate);
+      const expiryDateInNepali = calculateExpiryDate(expiryDate);
       return `
       <li>
-        <strong>${safeBookName}</strong> – Due on: <strong>${book.expiryDate.toString()}</strong>
+        <strong>${safeBookName}</strong> – Due on: <strong>${expiryDateInNepali}</strong>
       </li>
     `;
     })
@@ -564,8 +575,6 @@ function generateBookReturned(data, lang = 'en') {
   const bookListHTML = bookInfo
     .map((book) => `<li><strong>${sanitizeInput(book.bookName)}</strong></li>`)
     .join('');
-
-  console.log(bookListHTML);
 
   const translations = {
     en: {
