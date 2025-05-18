@@ -21,6 +21,7 @@ import {
   deleteBookByCountSchema,
   addStockSchema,
   searchAllBookSchema,
+  searchBorrowedBookSchema,
 } from '../validation/schema.js';
 
 import {
@@ -46,14 +47,14 @@ const router = Router();
 
 router
   .route('/getavailable')
-  .get(isCookieAuthorized, validateSchema(searchAllBookSchema), getAvailableBooks);
+  .get(isCookieAuthorized, getAvailableBooks);
 router.route('/getwithduplicates').get(isCookieAuthorized, getBooksWithDuplication);
 router.route('/getformember').post(isCookieAuthorized, getBorrowedBooksForMember);
 router.route('/borrow').post(isCookieAuthorized, validateUser, admin_superAdmin_both, borrowBook);
 router.route('/dashboard').get(isCookieAuthorized, admin_superAdmin_both, getDashBoardInfo);
 router.route('/renew').post(isCookieAuthorized, admin_superAdmin_both, renewBook);
 router.route('/getallborrowed').get(isCookieAuthorized, admin_superAdmin_both, getAllBorrowedBooks);
-router.route('/getall').get(isCookieAuthorized, validateSchema(searchAllBookSchema), getAllBooks);
+router.route('/getall').get(isCookieAuthorized, getAllBooks);
 router
   .route('/add')
   .post(isCookieAuthorized, admin_superAdmin_both, validateSchema(addBookSchema), addBook);

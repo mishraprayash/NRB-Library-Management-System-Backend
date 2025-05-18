@@ -254,13 +254,13 @@ export const getAllBorrowedBooks = async (req, res) => {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
     const { b_name, sort, page, sortBy, limit } = parsed.data;
+
     const where = {
       returned: false,
       expiryDate: {
         gte: new Date(Date.now()),
       },
     };
-
     const borrowedBooks = await prisma.borrowedBook.findMany({
       where,
       orderBy: { [sortBy]: sort },

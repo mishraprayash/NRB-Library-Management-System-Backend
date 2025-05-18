@@ -154,7 +154,11 @@ export const searchAllBookSchema = z.object({
 
 export const searchBorrowedBookSchema = z.object({
   b_name: z.string().optional(),
-  sort: z.enum(['asc', 'desc']).optional().default('desc'),
+  sort: z
+    .enum(['asc', 'desc'])
+    .optional()
+    .transform((val) => (val === '' ? 'desc' : val)) // If empty string, force to 'desc'
+    .default('desc'),
   page: z.coerce.number().positive().optional().default(1),
   sortBy: z
     .string()
@@ -162,7 +166,8 @@ export const searchBorrowedBookSchema = z.object({
     .default('borrowedDate')
     .refine((val) => !val || ALLOWED_SORT_BORROWEDBOOK_FIELDS.includes(val), {
       message: `sortBy must be one of: ${ALLOWED_SORT_BORROWEDBOOK_FIELDS.join(', ')}`,
-    }),
+    })
+    .transform((val) => (val === '' ? 'borrowedDate' : val)),
   limit: z.coerce.number().positive().max(100).optional().default(50),
 });
 
