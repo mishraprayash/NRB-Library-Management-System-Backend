@@ -25,7 +25,7 @@
     "pm2:logs": "pm2 logs"
   },
   "prisma": {
-    "seed": "node prisma/Seeds/seedDummy.js"
+    "seed": "node prisma/Seeds/seedAll.js"
   },
   "keywords": [],
   "author": "",
