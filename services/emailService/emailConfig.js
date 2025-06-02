@@ -5,9 +5,9 @@ import { config } from 'dotenv';
 config();
 
 const validateEmailConfig = () => {
-  if (!process.env.EMAIL_AUTH_USER || !process.env.EMAIL_AUTH_PASSWORD) {
+  if (!process.env.LIBRARY_EMAIL_AUTH_USER || !process.env.LIBRARY_EMAIL_AUTH_PASSWORD) {
     throw new Error(
-      'Email authentication credentials missing. Please set EMAIL_AUTH_USER and EMAIL_AUTH_PASSWORD environment variables'
+      'Email authentication credentials missing. Please set LIBRARY_EMAIL_AUTH_USER and LIBRARY_EMAIL_AUTH_PASSWORD environment variables'
     );
   }
 };
@@ -21,8 +21,8 @@ export const transporter = nodemailer.createTransport({
   port: 465,
   secure: true,
   auth: {
-    user: process.env.EMAIL_AUTH_USER,
-    pass: process.env.EMAIL_AUTH_PASSWORD,
+    user: process.env.LIBRARY_EMAIL_AUTH_USER,
+    pass: process.env.LIBRARY_EMAIL_AUTH_PASSWORD,
   },
 });
 
@@ -36,7 +36,7 @@ export const transporter = nodemailer.createTransport({
 export const sendEmail = async (to, subject, message) => {
   try {
     const info = await transporter.sendMail({
-      from: process.env.EMAIL_AUTH_USER,
+      from: process.env.LIBRARY_EMAIL_AUTH_USER,
       to,
       subject,
       html: message,
