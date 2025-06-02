@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
@@ -10,14 +10,17 @@ RUN npm install -g pm2
 # Copy application code
 COPY . .
 
-# Generate Prisma client
-RUN npm run build
-
 # Create logs directory
 RUN mkdir -p logs
+
+COPY entry-point.sh .
+RUN chmod +x entry-point.sh
 
 # Expose the application port (based on your ecosystem config)
 EXPOSE 5000 5001
 
 # Command to run the application with PM2
-CMD ["pm2-runtime", "ecosystem.config.cjs"]
+CMD ["./entry-point.sh"]
+
+
+
