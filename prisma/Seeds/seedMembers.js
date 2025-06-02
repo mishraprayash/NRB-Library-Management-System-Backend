@@ -1,4 +1,3 @@
-import xlsx from 'xlsx';
 import prisma from '../../lib/prisma.js';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
@@ -11,7 +10,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// for dummy data
+// generating dummy emails
 function generateRandomEmail(length) {
   const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const bytes = crypto.randomBytes(length);
@@ -22,7 +21,7 @@ function generateRandomEmail(length) {
   return result + '@testmail.com';
 }
 
-// for testing - dummy emails
+// for testing - using dummy emails
 async function seedMembersWithFakeEmail() {
   let totalMembers = 0;
   let successfullEntries = 0;
@@ -61,6 +60,21 @@ async function seedMembersWithFakeEmail() {
       promises.push(prisma.member.create({ data: memberData }));
     }
 
+    const superAdminPassword = await bcrypt.hash("superadmin", 10)
+
+    promises.push(
+      prisma.member.create({
+        data: {
+          name: "Super Admin",
+          username: "superadmin",
+          email: "library.nrbpokhara@gmail.com",
+          password: superAdminPassword,
+          phoneNo: "9800000000",
+          designation: "SUPERADMIN",
+          role: "SUPERADMIN"
+        }
+      })
+    )
     // Use Promise.allSettled instead
     const results = await Promise.allSettled(promises);
 
@@ -126,6 +140,22 @@ export async function handleMembersSeeding() {
       promises.push(prisma.member.create({ data: memberData }));
     }
 
+    const superAdminPassword = await bcrypt.hash("superadmin", 10)
+
+    promises.push(
+      prisma.member.create({
+        data: {
+          name: "Super Admin",
+          username: "superadmin",
+          email: "library.nrbpokhara@gmail.com",
+          password: superAdminPassword,
+          phoneNo: "9800000000",
+          designation: "SUPERADMIN",
+          role: "SUPERADMIN"
+        }
+      })
+    )
+    totalMembers++;
     // Use Promise.allSettled instead
     const results = await Promise.allSettled(promises);
 
@@ -148,5 +178,4 @@ export async function handleMembersSeeding() {
   }
 }
 
-// seedMembersWithFakeEmail()
-//   .finally(async () => prisma.$disconnect())
+

@@ -121,14 +121,6 @@ async function UpdateCategories() {
 
 export async function handleBooksSeeding() {
   await SeedBook();
+  // updating categories variables based on categories of books provided
   await UpdateCategories();
 }
-
-// // in case you want to seed it alone
-
-// handleBooksSeeding()
-//   .then(() => console.log("✅ Books Added Successfully"))
-//   .catch((e) => console.log(`Seeding Error`, e))
-//   .finally(async () => {
-//     prisma.$disconnect();
-// });
