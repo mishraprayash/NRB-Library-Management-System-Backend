@@ -99,7 +99,7 @@ function setupExpressApp() {
   app.use(
     compression({
       level: 6, // Compression level (0-9)
-      threshold: '1kb', // Only compress responses larger than 1kb
+      threshold: '10kb', // Only compress responses larger than 1kb
       filter: (req, res) => {
         if (req.headers['x-no-compression']) {
           return false;
@@ -112,21 +112,21 @@ function setupExpressApp() {
   // Standard middleware
   app.use(cookieParser());
 
-  // Global rate limiter - 100 requests per 15 minutes
+  // Global rate limiter - 100 requests per minute 
   const globalLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 200, // Limit each IP to 60 requests per windowMs
+    max: 100, // Limit each IP to 100 requests per windowMs
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    message: 'Too many requests from this IP, please try again after 15 minutes',
+    message: 'Too many requests from this IP, please try again after some time.',
   });
 
   const authLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
-    max: 50, // Limit each IP to 100 requests per windowMs
+    max: 50, // Limit each IP to 50 requests per windowMs
     standardHeaders: true,
     legacyHeaders: false,
-    message: 'Too many login attempts, please try again after a minute',
+    message: 'Too many login attempts, please try again later.',
   });
 
   // Apply global rate limiter to all routes
@@ -141,7 +141,7 @@ function setupExpressApp() {
       allowedHeaders: ['Content-Type', 'Authorization'],
     })
   );
-
+  
   // Request logging in development mode
   if (NODE_ENV === 'development') {
     app.use((req, res, next) => {
