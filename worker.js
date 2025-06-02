@@ -16,7 +16,7 @@ import { runBackgroundReapeatableReminderQueue } from './services/emailService/e
 config();
 
 // Validate required environment variables
-const requiredEnvVars = ['EMAIL_AUTH_USER', 'EMAIL_AUTH_PASSWORD'];
+const requiredEnvVars = ['LIBRARY_EMAIL_AUTH_USER', 'LIBRARY_EMAIL_AUTH_PASSWORD'];
 
 // Constants
 const PORT = process.env.WORKER_PORT || 5001;
@@ -86,11 +86,11 @@ process.on('SIGINT', shutdownGracefully);
 // Start workers
 try {
   logger.info('Starting email workers...');
-  if (!process.env.EMAIL_AUTH_USER || !process.env.EMAIL_AUTH_PASSWORD) {
+  if (!process.env.LIBRARY_EMAIL_AUTH_USER || !process.env.LIBRARY_EMAIL_AUTH_PASSWORD) {
     throw new Error('Email credentials not found in environment variables');
   }
   startEmailWorker();
-  // runBackgroundReapeatableReminderQueue();
+  runBackgroundReapeatableReminderQueue();
   logger.info('All workers started successfully');
 } catch (error) {
   logger.error('Error starting workers:', error);
