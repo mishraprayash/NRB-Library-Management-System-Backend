@@ -230,7 +230,6 @@ npm run pm2:logs
 ## Future Improvements
 
 - Implement comprehensive test suite
-- Add Docker containerization
 - Enhance API documentation with Swagger/OpenAPI
 - Implement additional reporting features
 - Add caching layer for improved performance
@@ -246,6 +245,5 @@ npm run pm2:logs
 This project is licensed under the ISC License.
 
 ## Acknowledgements
-
 - Nepal Rastra Bank for providing the internship opportunity
 - All contributors who have participated in this project
