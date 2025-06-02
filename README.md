@@ -105,7 +105,7 @@ npm run dev:all
 
 ### Production Deployment
 ```bash
-# Build the application
+# prisma generate
 npm run build
 
 # Start with PM2 process manager
